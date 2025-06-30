@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Database Statistics - Finviz Stock Scraper</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/url-management.css') }}">
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; }
+        .container { max-width: 800px; margin: auto; }
+        .header { margin-bottom: 30px; }
+        .back-link { color: #007bff; text-decoration: none; }
+        .back-link:hover { text-decoration: underline; }
+        .stats-section { margin-bottom: 30px; }
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-top: 15px; }
+        .stat-card { background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 20px; text-align: center; }
+        .stat-value { font-size: 2em; font-weight: bold; color: #007bff; margin-bottom: 5px; }
+        .stat-label { color: #6c757d; font-size: 0.9em; }
+        .info-text { color: #6c757d; font-size: 0.9em; margin-top: 10px; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h1>Database Statistics</h1>
+        <a href="/" class="back-link">← Back to Main Page</a>
+    </div>
+    
+    <div class="stats-section">
+        <h2>Database Information</h2>
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-value">{{ stats.database.database_size|filesizeformat }}</div>
+                <div class="stat-label">Database Size</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">{{ stats.database.tables.urls }}</div>
+                <div class="stat-label">Saved URLs</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">{{ stats.database.tables.scraping_sessions }}</div>
+                <div class="stat-label">Scraping Sessions</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">{{ stats.database.tables.ticker_results }}</div>
+                <div class="stat-label">Ticker Records</div>
+            </div>
+        </div>
+        <div class="info-text">
+            Database location: {{ stats.database.database_path }}
+        </div>
+    </div>
+    
+    <div class="stats-section">
+        <h2>URL Statistics</h2>
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-value">{{ stats.urls.total_urls }}</div>
+                <div class="stat-label">Total URLs</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">{{ stats.urls.recent_urls }}</div>
+                <div class="stat-label">Added Last 30 Days</div>
+            </div>
+            {% if stats.urls.latest_url %}
+            <div class="stat-card">
+                <div class="stat-value">{{ stats.urls.latest_url.name }}</div>
+                <div class="stat-label">Most Recent URL</div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    
+    <div class="stats-section">
+        <h2>Storage Statistics</h2>
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-value">{{ stats.storage.total_tickers }}</div>
+                <div class="stat-label">Total Tickers</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">{{ stats.storage.unique_tickers }}</div>
+                <div class="stat-label">Unique Tickers</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">{{ stats.storage.completed_sessions }}</div>
+                <div class="stat-label">Completed Sessions</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">{{ stats.storage.failed_sessions }}</div>
+                <div class="stat-label">Failed Sessions</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">{{ stats.storage.recent_tickers }}</div>
+                <div class="stat-label">Tickers Last 7 Days</div>
+            </div>
+        </div>
+        <div class="info-text">
+            Success rate: {{ "%.1f"|format((stats.storage.completed_sessions / (stats.storage.completed_sessions + stats.storage.failed_sessions) * 100) if (stats.storage.completed_sessions + stats.storage.failed_sessions) > 0 else 0) }}%
+        </div>
+    </div>
+</div>
+</body>
+</html> 
