@@ -230,11 +230,15 @@ def scrape():
             else:
                 flash(f"Scraping skipped: {scrape_result['reason']}. No previous results found.")
                 results = {"name": name, "tickers": [], "status": "skipped", "reason": scrape_result['reason']}
+            
+            # Log the skipped session with dedup metadata
+            if scrape_result.get('content_hash'):
+                data_storage.save_tickers_to_database(name, [], status='skipped', dedup_reason=scrape_result['reason'], content_hash=scrape_result['content_hash'])
         elif scrape_result['status'] == 'completed':
             tickers = scrape_result['tickers']
             if tickers:
-                # Save to database and CSV
-                csv_path = data_storage.save_tickers_to_csv(name, tickers)
+                # Save to database and CSV with content hash for deduplication
+                csv_path = data_storage.save_tickers_to_csv(name, tickers, content_hash=scrape_result.get('content_hash'))
                 if csv_path:
                     flash(f"Successfully scraped {len(tickers)} tickers. Data saved to database and CSV.")
                 else:
@@ -316,7 +320,10 @@ def database_stats():
             'storage': storage_stats
         }
         
-        return render_template('database_stats.html', stats=stats)
+        # Get URLs for sidebar
+        urls = url_manager.list_urls()
+        
+        return render_template('database_stats.html', stats=stats, urls=urls)
         
     except Exception as e:
         logger.error(f"Error getting database stats: {e}")
@@ -340,78 +347,54 @@ def export_csv(name):
 
 @app.route("/stats")
 def stats():
-    """Show scraping statistics and deduplication effectiveness."""
+    """Display scraping statistics."""
     try:
-        # Get overall statistics
-        total_urls = len(url_manager.list_urls())
-        
-        # Get scraping session statistics
-        session_stats = db_manager.execute_query("""
-            SELECT 
-                COUNT(*) as total_sessions,
-                SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed_sessions,
-                SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as failed_sessions,
-                SUM(CASE WHEN status = 'skipped' THEN 1 ELSE 0 END) as skipped_sessions
-            FROM scraping_sessions
-        """)
-        
-        if session_stats and session_stats[0]:
-            stats = session_stats[0]
-            total_sessions = stats[0] or 0
-            completed_sessions = stats[1] or 0
-            failed_sessions = stats[2] or 0
-            skipped_sessions = stats[3] or 0
-        else:
-            total_sessions = completed_sessions = failed_sessions = skipped_sessions = 0
-        
-        # Calculate deduplication effectiveness
-        if total_sessions > 0:
-            dedup_rate = (skipped_sessions / total_sessions) * 100
-        else:
-            dedup_rate = 0
+        # Get deduplication statistics
+        stats = db_manager.get_deduplication_stats()
         
         # Get recent activity
-        recent_sessions = db_manager.execute_query("""
-            SELECT 
-                s.timestamp,
-                s.status,
-                s.ticker_count,
-                s.dedup_reason,
-                u.name as url_name
-            FROM scraping_sessions s
-            JOIN urls u ON s.url_id = u.id
-            ORDER BY s.timestamp DESC, s.id DESC
-            LIMIT 10
-        """)
+        recent_activity = db_manager.get_recent_scraping_activity(limit=10)
         
         # Get top URLs by activity
-        top_urls = db_manager.execute_query("""
-            SELECT 
-                u.name,
-                COUNT(s.id) as session_count,
-                SUM(CASE WHEN s.status = 'completed' THEN 1 ELSE 0 END) as completed_count,
-                SUM(CASE WHEN s.status = 'skipped' THEN 1 ELSE 0 END) as skipped_count
-            FROM urls u
-            LEFT JOIN scraping_sessions s ON u.id = s.url_id
-            GROUP BY u.id, u.name
-            ORDER BY session_count DESC
-            LIMIT 5
-        """)
+        top_urls = db_manager.get_top_urls_by_activity(limit=5)
         
-        return render_template('stats.html',
-        total_urls=total_urls,
-        total_sessions=total_sessions,
-        completed_sessions=completed_sessions,
-        failed_sessions=failed_sessions,
-        skipped_sessions=skipped_sessions,
-        dedup_rate=dedup_rate,
-        top_urls=top_urls,
-        recent_sessions=recent_sessions
-        )
+        # Get URLs for sidebar
+        urls = url_manager.list_urls()
         
+        return render_template('stats.html', 
+                             stats=stats, 
+                             recent_activity=recent_activity,
+                             top_urls=top_urls,
+                             urls=urls)
     except Exception as e:
-        logger.error(f"Error generating stats: {e}")
-        flash(f"Error generating statistics: {str(e)}")
+        logger.error(f"Error getting stats: {e}")
+        flash("Error loading statistics")
+        return redirect(url_for('index'))
+
+@app.route("/scan/<name>")
+def scan(name):
+    """Display individual scan page with tickers for a specific URL name."""
+    try:
+        # Get all URLs for sidebar
+        urls = url_manager.list_urls()
+        
+        # Get URL data for this specific scan
+        url_data = url_manager.get_url_by_name(name)
+        if not url_data:
+            flash(f"Scan '{name}' not found")
+            return redirect(url_for('index'))
+        
+        # Get tickers for this scan
+        tickers = data_storage.get_tickers_for_url(name)
+        
+        return render_template('scan.html', 
+                             scan_name=name,
+                             urls=urls,
+                             url_data=url_data,
+                             tickers=tickers)
+    except Exception as e:
+        logger.error(f"Error loading scan {name}: {e}")
+        flash(f"Error loading scan '{name}'")
         return redirect(url_for('index'))
 
 if __name__ == "__main__":

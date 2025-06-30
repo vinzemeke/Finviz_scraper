@@ -109,11 +109,7 @@ class ScraperEngine:
             soup = BeautifulSoup(response.content, 'html.parser')
             tickers = self.pagination_handler.scrape_all_pages(url)
             
-            # Log successful scrape
-            self.db_manager.log_scrape_session(
-                url_id, 'completed', len(tickers), None, content_hash, None
-            )
-            
+            # Don't log session here - let data storage handle it when saving tickers
             logger.info(f"Successfully scraped {len(tickers)} tickers from '{url_name}'")
             
             return {
