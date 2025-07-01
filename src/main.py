@@ -1,11 +1,24 @@
-from flask import Flask, render_template_string, request, redirect, url_for, flash, render_template
+from flask import Flask, render_template_string, request, redirect, url_for, flash, render_template, send_from_directory, jsonify
 import logging
 from src.storage.url_manager import URLManager
 from src.scraper.scraper_engine import ScraperEngine
 from src.storage.data_storage import DataStorage
 from src.database.database_manager import DatabaseManager
 from src.database.migration import MigrationManager
+from src.services.yahoo_finance_service import YahooFinanceService
+from src.services.chart_generator import ChartGeneratorService
+from src.services.cache_manager import CacheManagerService
 import os
+
+def format_market_cap(market_cap: float) -> str:
+    if market_cap is None:
+        return "N/A"
+    if market_cap >= 1_000_000_000:
+        return f"${market_cap / 1_000_000_000:.2f}B"
+    elif market_cap >= 1_000_000:
+        return f"${market_cap / 1_000_000:.2f}M"
+    else:
+        return f"${market_cap:,.2f}"
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -20,24 +33,19 @@ app = Flask(__name__,
            static_folder=static_dir)
 app.secret_key = 'finviz_secret_key'
 
-# Initialize database and migration
-db_manager = DatabaseManager()
-migration_manager = MigrationManager(db_manager)
-
-# Perform migration if needed
-try:
-    migration_results = migration_manager.perform_migration()
-    if migration_results['migration_performed']:
-        logger.info("Database migration completed successfully")
-        if migration_results.get('errors'):
-            logger.warning(f"Migration completed with errors: {migration_results['errors']}")
-except Exception as e:
-    logger.error(f"Error during migration: {e}")
-
 # Initialize application components
+db_manager = DatabaseManager()
 url_manager = URLManager(db_manager)
 scraper_engine = ScraperEngine(db_manager, url_manager)
 data_storage = DataStorage(db_manager, url_manager)
+yahoo_finance_service = YahooFinanceService()
+chart_generator_service = ChartGeneratorService(static_folder=os.path.join(static_dir, 'charts'))
+cache_manager_service = CacheManagerService(db_manager)
+
+
+if __name__ == "__main__":
+    app.run(debug=True, port=5000)
+
 
 HTML_TEMPLATE = """
 <!DOCTYPE html>
@@ -183,10 +191,109 @@ HTML_TEMPLATE = """
 </html>
 """
 
+def format_market_cap(market_cap: float) -> str:
+    if market_cap is None:
+        return "N/A"
+    if market_cap >= 1_000_000_000:
+        return f"${market_cap / 1_000_000_000:.2f}B"
+    elif market_cap >= 1_000_000:
+        return f"${market_cap / 1_000_000:.2f}M"
+    else:
+        return f"${market_cap:,.2f}"
+
 @app.route("/", methods=["GET"])
 def index():
     urls = url_manager.list_urls()
     return render_template('dashboard.html', urls=urls, results=None)
+
+@app.route("/view_scanned_list/<name>", methods=["GET"])
+def view_scanned_list(name):
+    if not url_manager.url_exists(name):
+        flash("URL not found.")
+        return redirect(url_for('index'))
+
+    # Try to get previously scraped tickers
+    previous_tickers = data_storage.get_tickers_for_url(name)
+
+    if previous_tickers:
+        flash(f"Displaying previously scraped data for '{name}'.")
+        results = {"name": name, "tickers": previous_tickers, "status": "completed"}
+    else:
+        # If no previous data, initiate a new scrape
+        flash(f"No previous data found for '{name}'. Initiating a new scrape.")
+        try:
+            scrape_result = scraper_engine.scrape_url(name, force_scrape=False)
+            if scrape_result['status'] == 'completed':
+                tickers = scrape_result['tickers']
+                if tickers:
+                    csv_path = data_storage.save_tickers_to_csv(name, tickers, scrape_result)
+                    if csv_path:
+                        flash(f"Successfully scraped {len(tickers)} tickers. Data saved to database and CSV.")
+                    else:
+                        flash(f"Scraped {len(tickers)} tickers but failed to save data.")
+                else:
+                    flash("No tickers found on the page.")
+                results = {"name": name, "tickers": tickers, "status": "completed"}
+            else:
+                flash(f"Scraping failed: {scrape_result.get('reason', 'Unknown error')}")
+                results = {"name": name, "tickers": [], "status": "failed", "reason": scrape_result.get('reason')}
+        except Exception as e:
+            error_msg = f"Scraping failed: {str(e)}"
+            logger.error(error_msg)
+            flash(error_msg)
+            results = {"name": name, "tickers": [], "status": "failed", "reason": error_msg}
+
+    urls = url_manager.list_urls()
+    return render_template('dashboard.html', urls=urls, results=results)
+
+@app.route("/api/ticker_details/<ticker_symbol>")
+def api_ticker_details(ticker_symbol):
+    ticker_symbol = ticker_symbol.upper() # Ensure uppercase
+    
+    # Try to get data from cache first
+    cached_data = cache_manager_service.get_cached_ticker_data(ticker_symbol)
+    
+    if cached_data:
+        ticker_info = cached_data
+        chart_path = ticker_info.get('chart_path')
+        logger.info(f"Displaying cached data for {ticker_symbol}.")
+    else:
+        # Fetch fresh data if not in cache or stale
+        logger.info(f"Fetching live data for {ticker_symbol}...")
+        ticker_info = yahoo_finance_service.get_ticker_data(ticker_symbol)
+        chart_path = None
+
+        if ticker_info:
+            # Generate chart
+            historical_data = yahoo_finance_service.get_historical_data(ticker_symbol, period="3mo", interval="1d")
+            emas = {
+                'ema_8': ticker_info.get('ema_8'),
+                'ema_21': ticker_info.get('ema_21'),
+                'ema_200': ticker_info.get('ema_200')
+            }
+            chart_path = chart_generator_service.generate_price_chart(ticker_symbol, historical_data, emas)
+            
+            # Cache the new data and chart path
+            cache_manager_service.set_cached_ticker_data(ticker_symbol, ticker_info, chart_path)
+        else:
+            logger.warning(f"Could not retrieve data for {ticker_symbol}.")
+
+    # Format market_cap before sending as JSON
+    if ticker_info:
+        ticker_info['market_cap_formatted'] = format_market_cap(ticker_info.get('market_cap'))
+    
+    return jsonify(ticker_info=ticker_info, chart_path=chart_path)
+
+@app.route("/charts/<filename>")
+def serve_chart(filename):
+    return send_from_directory(os.path.join(app.static_folder, 'charts'), filename)
+
+@app.route("/refresh_all_data")
+def refresh_all_data():
+    cache_manager_service.clear_all_cache()
+    chart_generator_service.cleanup_old_charts(max_age_hours=0) # Clean up all charts immediately
+    flash("All cached data and charts refreshed successfully!")
+    return redirect(url_for('index'))
 
 @app.route("/add_url", methods=["POST"])
 def add_url():
@@ -230,15 +337,11 @@ def scrape():
             else:
                 flash(f"Scraping skipped: {scrape_result['reason']}. No previous results found.")
                 results = {"name": name, "tickers": [], "status": "skipped", "reason": scrape_result['reason']}
-            
-            # Log the skipped session with dedup metadata
-            if scrape_result.get('content_hash'):
-                data_storage.save_tickers_to_database(name, [], status='skipped', dedup_reason=scrape_result['reason'], content_hash=scrape_result['content_hash'])
         elif scrape_result['status'] == 'completed':
             tickers = scrape_result['tickers']
             if tickers:
-                # Save to database and CSV with content hash for deduplication
-                csv_path = data_storage.save_tickers_to_csv(name, tickers, content_hash=scrape_result.get('content_hash'))
+                # Save to database and CSV
+                csv_path = data_storage.save_tickers_to_csv(name, tickers, scrape_result)
                 if csv_path:
                     flash(f"Successfully scraped {len(tickers)} tickers. Data saved to database and CSV.")
                 else:
@@ -320,10 +423,7 @@ def database_stats():
             'storage': storage_stats
         }
         
-        # Get URLs for sidebar
-        urls = url_manager.list_urls()
-        
-        return render_template('database_stats.html', stats=stats, urls=urls)
+        return render_template('database_stats.html', stats=stats)
         
     except Exception as e:
         logger.error(f"Error getting database stats: {e}")
@@ -347,55 +447,79 @@ def export_csv(name):
 
 @app.route("/stats")
 def stats():
-    """Display scraping statistics."""
+    """Show scraping statistics and deduplication effectiveness."""
     try:
-        # Get deduplication statistics
-        stats = db_manager.get_deduplication_stats()
+        # Get overall statistics
+        total_urls = len(url_manager.list_urls())
+        
+        # Get scraping session statistics
+        session_stats = db_manager.execute_query("""
+            SELECT 
+                COUNT(*) as total_sessions,
+                SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed_sessions,
+                SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as failed_sessions,
+                SUM(CASE WHEN status = 'skipped' THEN 1 ELSE 0 END) as skipped_sessions
+            FROM scraping_sessions
+        """)
+        
+        if session_stats and session_stats[0]:
+            stats = session_stats[0]
+            total_sessions = stats[0] or 0
+            completed_sessions = stats[1] or 0
+            failed_sessions = stats[2] or 0
+            skipped_sessions = stats[3] or 0
+        else:
+            total_sessions = completed_sessions = failed_sessions = skipped_sessions = 0
+        
+        # Calculate deduplication effectiveness
+        if total_sessions > 0:
+            dedup_rate = (skipped_sessions / total_sessions) * 100
+        else:
+            dedup_rate = 0
         
         # Get recent activity
-        recent_activity = db_manager.get_recent_scraping_activity(limit=10)
+        recent_sessions = db_manager.execute_query("""
+            SELECT 
+                s.timestamp,
+                s.status,
+                s.ticker_count,
+                s.dedup_reason,
+                u.name as url_name
+            FROM scraping_sessions s
+            JOIN urls u ON s.url_id = u.id
+            ORDER BY s.timestamp DESC, s.id DESC
+            LIMIT 10
+        """)
         
         # Get top URLs by activity
-        top_urls = db_manager.get_top_urls_by_activity(limit=5)
+        top_urls = db_manager.execute_query("""
+            SELECT 
+                u.name,
+                COUNT(s.id) as session_count,
+                SUM(CASE WHEN s.status = 'completed' THEN 1 ELSE 0 END) as completed_count,
+                SUM(CASE WHEN s.status = 'skipped' THEN 1 ELSE 0 END) as skipped_count
+            FROM urls u
+            LEFT JOIN scraping_sessions s ON u.id = s.url_id
+            GROUP BY u.id, u.name
+            ORDER BY session_count DESC
+            LIMIT 5
+        """)
         
-        # Get URLs for sidebar
-        urls = url_manager.list_urls()
+        return render_template('stats.html',
+        total_urls=total_urls,
+        total_sessions=total_sessions,
+        completed_sessions=completed_sessions,
+        failed_sessions=failed_sessions,
+        skipped_sessions=skipped_sessions,
+        dedup_rate=dedup_rate,
+        top_urls=top_urls,
+        recent_sessions=recent_sessions
+        )
         
-        return render_template('stats.html', 
-                             stats=stats, 
-                             recent_activity=recent_activity,
-                             top_urls=top_urls,
-                             urls=urls)
     except Exception as e:
-        logger.error(f"Error getting stats: {e}")
-        flash("Error loading statistics")
-        return redirect(url_for('index'))
-
-@app.route("/scan/<name>")
-def scan(name):
-    """Display individual scan page with tickers for a specific URL name."""
-    try:
-        # Get all URLs for sidebar
-        urls = url_manager.list_urls()
-        
-        # Get URL data for this specific scan
-        url_data = url_manager.get_url_by_name(name)
-        if not url_data:
-            flash(f"Scan '{name}' not found")
-            return redirect(url_for('index'))
-        
-        # Get tickers for this scan
-        tickers = data_storage.get_tickers_for_url(name)
-        
-        return render_template('scan.html', 
-                             scan_name=name,
-                             urls=urls,
-                             url_data=url_data,
-                             tickers=tickers)
-    except Exception as e:
-        logger.error(f"Error loading scan {name}: {e}")
-        flash(f"Error loading scan '{name}'")
+        logger.error(f"Error generating stats: {e}")
+        flash(f"Error generating statistics: {str(e)}")
         return redirect(url_for('index'))
 
 if __name__ == "__main__":
-    app.run(debug=True, port=5001) 
+    app.run(debug=True, port=5000) 
