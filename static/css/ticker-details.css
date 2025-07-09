@@ -1,0 +1,58 @@
+/* Basic styling for the ticker details page */
+body {
+    font-family: 'Inter', sans-serif;
+}
+
+.metric-item {
+    background-color: #f8fafc; /* slate-50 */
+    border: 1px solid #e2e8f0; /* slate-200 */
+    border-radius: 0.5rem;
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+}
+
+.dark .metric-item {
+    background-color: #334155; /* slate-700 */
+    border-color: #475569; /* slate-600 */
+}
+
+.metric-label {
+    font-size: 0.875rem; /* text-sm */
+    color: #64748b; /* slate-500 */
+    margin-bottom: 0.25rem;
+}
+
+.dark .metric-label {
+    color: #94a3b8; /* slate-400 */
+}
+
+.metric-value {
+    font-size: 1.25rem; /* text-xl */
+    font-weight: 600; /* font-semibold */
+    color: #1e293b; /* slate-900 */
+}
+
+.dark .metric-value {
+    color: #f8fafc; /* slate-50 */
+}
+
+.chart-container {
+    background-color: #f8fafc; /* slate-50 */
+    border: 1px solid #e2e8f0; /* slate-200 */
+    border-radius: 0.5rem;
+    padding: 1rem;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.dark .chart-container {
+    background-color: #334155; /* slate-700 */
+    border-color: #475569; /* slate-600 */
+}
+
+.chart-container img {
+    max-width: 100%;
+    height: auto;
+}

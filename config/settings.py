@@ -36,7 +36,7 @@ MAX_PAGES = 100  # Maximum number of pages to scrape (safety limit)
 # Deduplication settings
 DEDUP_TIME_WINDOW_HOURS = int(os.getenv('DEDUP_TIME_WINDOW_HOURS', '24'))  # Hours after which to re-scrape
 DEDUP_ENABLE_CONTENT_HASH = os.getenv('DEDUP_ENABLE_CONTENT_HASH', 'true').lower() == 'true'  # Enable content hash checking
-DEDUP_USE_TIME_WINDOW = os.getenv('DEDUP_USE_TIME_WINDOW', 'false').lower() == 'true'  # Use time window as fallback when hash checking is disabled
+DEDUP_USE_TIME_WINDOW = os.getenv('DEDUP_USE_TIME_WINDOW', 'true').lower() == 'true'  # Use time window as fallback when hash checking is disabled
 DEDUP_LOG_SKIPS = os.getenv('DEDUP_LOG_SKIPS', 'true').lower() == 'true'  # Log skipped scrapes
 
 # Error messages

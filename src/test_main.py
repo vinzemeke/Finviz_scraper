@@ -1,5 +1,5 @@
 import pytest
-from src.main import app, url_manager
+from src.main import app
 
 @pytest.fixture
 def client():
@@ -7,9 +7,9 @@ def client():
     with app.test_client() as client:
         # Clear URLs before each test by deleting from database
         try:
-            url_manager.db_manager.execute_update("DELETE FROM urls")
-            url_manager.db_manager.execute_update("DELETE FROM scraping_sessions")
-            url_manager.db_manager.execute_update("DELETE FROM ticker_results")
+            app.url_manager.db_manager.execute_update("DELETE FROM urls")
+            app.url_manager.db_manager.execute_update("DELETE FROM scraping_sessions")
+            app.url_manager.db_manager.execute_update("DELETE FROM ticker_results")
         except:
             pass  # Ignore errors if tables don't exist
         yield client

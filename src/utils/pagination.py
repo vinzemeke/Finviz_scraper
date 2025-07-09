@@ -126,7 +126,7 @@ class PaginationHandler:
                 try:
                     current_row = self._extract_row_from_url(current_url)
                     next_row = self._extract_row_from_url(href)
-                    if next_row and next_row > current_row:
+                    if next_row is not None and current_row is not None and next_row > current_row:
                         if href.startswith('http'):
                             return href
                         else:

@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LSMC American Options Pricing</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/sidebar.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/lsmc-dashboard.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <h1>📈 Finviz Scraper</h1>
+            <p>Smart Stock Data Collection</p>
+        </div>
+        
+        <nav class="sidebar-nav">
+            <a href="/" class="nav-item">
+                <span class="nav-icon">🏠</span>
+                <span>Dashboard</span>
+            </a>
+            <a href="/stats" class="nav-item">
+                <span class="nav-icon">📊</span>
+                <span>Statistics</span>
+            </a>
+            <a href="/database_stats" class="nav-item">
+                <span class="nav-icon">🗄️</span>
+                <span>Database Stats</span>
+            </a>
+            <a href="/monte_carlo" class="nav-item">
+                <span class="nav-icon">🎲</span>
+                <span>Monte Carlo</span>
+            </a>
+            <a href="/lsmc_dashboard" class="nav-item active">
+                <span class="nav-icon">🧮</span>
+                <span>LSMC Pricing</span>
+            </a>
+        </nav>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <div class="container">
+            <div class="page-header">
+                <h2>LSMC American Options Pricing</h2>
+                <p>Advanced American options pricing using Least-Squares Monte Carlo with PyTorch acceleration</p>
+            </div>
+
+            <!-- Progress Bar -->
+            <div class="progress-container">
+                <div class="progress-bar">
+                    <div class="progress-step active" data-step="1">1</div>
+                    <div class="progress-step" data-step="2">2</div>
+                    <div class="progress-step" data-step="3">3</div>
+                    <div class="progress-step" data-step="4">4</div>
+                </div>
+                <div class="progress-labels">
+                    <span class="progress-label active">Enter Ticker</span>
+                    <span class="progress-label">Options Chain & Selection</span>
+                    <span class="progress-label">Run Simulation</span>
+                    <span class="progress-label">View Results</span>
+                </div>
+            </div>
+
+            <!-- Step 1: Enter Ticker -->
+            <div id="step-1" class="workflow-step active">
+                <div class="step-header">
+                    <h3>Step 1: Enter Ticker</h3>
+                    <p>Input a stock ticker symbol to load its live options chain</p>
+                </div>
+                
+                <div class="step-content">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="ticker_input">Stock Ticker</label>
+                            <div class="autocomplete-container">
+                                <input type="text" id="ticker_input" value="" placeholder="Enter ticker symbol or company name (e.g., AAPL, Apple, TSLA, SPY)">
+                                <div id="autocomplete-dropdown" class="autocomplete-dropdown" style="display: none;"></div>
+                            </div>
+                            <small class="form-help">Enter a valid stock ticker symbol or company name</small>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="fetch_button">Load Options Data</label>
+                            <button id="fetch_button" class="btn btn-primary">
+                                <i class="fas fa-download"></i> Load Options Chain
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Stock Summary Display -->
+                    <div id="stock_summary" class="stock-summary-section" style="display: none;">
+                        <div class="stock-summary-card">
+                            <div class="stock-info">
+                                <h4 id="stock_symbol">AAPL</h4>
+                                <div class="price-info">
+                                    <span class="current-price" id="current_price">$0.00</span>
+                                    <span class="price-change" id="price_change">+0.00 (0.00%)</span>
+                                </div>
+                            </div>
+                            <div class="stock-details">
+                                <div class="detail-item">
+                                    <span class="label">Market Cap:</span>
+                                    <span id="market_cap">-</span>
+                                </div>
+                                <div class="detail-item">
+                                    <span class="label">Volume:</span>
+                                    <span id="volume">-</span>
+                                </div>
+                                <div class="detail-item">
+                                    <span class="label">52W Range:</span>
+                                    <span id="fifty_two_week_range">-</span>
+                                </div>
+                                <div class="detail-item">
+                                    <span class="label">Implied Volatility:</span>
+                                    <span id="implied_volatility">-</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="step-actions">
+                        <button class="btn btn-secondary" onclick="previousStep()" disabled>Previous</button>
+                        <button class="btn btn-primary" onclick="nextStep()" id="step1_next" disabled>Next: Options Chain</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 2: Display Options Chain -->
+            <div id="step-2" class="workflow-step">
+                <div class="step-header">
+                    <h3>Step 2: Options Chain & Selection</h3>
+                    <p>Review the options chain for the selected ticker and select options for simulation</p>
+                </div>
+                
+                <div class="step-content">
+                    <!-- Expiry Selection -->
+                    <div class="expiry-selection">
+                        <div class="form-group">
+                            <label for="expiry_selector">Select Expiration Date</label>
+                            <select id="expiry_selector">
+                                <option value="">Loading expiries...</option>
+                            </select>
+                            <small class="form-help">Choose the expiration date for your options analysis</small>
+                        </div>
+                    </div>
+                    
+                    <!-- Options Chain Display -->
+                    <div class="options-chain-container">
+                        <div class="options-chain-header">
+                            <div class="current-price-display">
+                                <span class="label">Current Price:</span>
+                                <span class="price" id="chain_current_price">$0.00</span>
+                            </div>
+                            <div class="chain-controls">
+                                <button class="btn btn-sm btn-secondary" onclick="refreshOptionsChain()">Refresh</button>
+                            </div>
+                        </div>
+                        
+                        <!-- Selection Controls -->
+                        <div class="selection-controls">
+                            <div class="selection-buttons">
+                                <button class="btn btn-sm btn-secondary" onclick="selectAllOptions()">Select All</button>
+                                <button class="btn btn-sm btn-secondary" onclick="clearSelection()">Clear All</button>
+                                <button class="btn btn-sm btn-secondary" onclick="selectTopOI(5)">Top 5 OI</button>
+                                <button class="btn btn-sm btn-secondary" onclick="selectTopOI(10)">Top 10 OI</button>
+                                <button class="btn btn-sm btn-secondary" onclick="selectTopOI(20)">Top 20 OI</button>
+                                <button class="btn btn-sm btn-secondary" onclick="selectTopVolume(10)">Top 10 Volume</button>
+                                <button class="btn btn-sm btn-secondary" onclick="selectTopVolume(20)">Top 20 Volume</button>
+                            </div>
+                            <div class="selection-filters">
+                                <label>
+                                    <input type="checkbox" id="filter_itm"> ITM Only
+                                </label>
+                                <label>
+                                    <input type="checkbox" id="filter_otm"> OTM Only
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Options Chain Grid -->
+                        <div class="options-chain-grid">
+                            <table class="options-table selectable">
+                                <thead>
+                                    <tr>
+                                        <th colspan="7" class="calls-header">Call Options</th>
+                                        <th class="strike-header">Strike</th>
+                                        <th colspan="7" class="puts-header">Put Options</th>
+                                    </tr>
+                                    <tr>
+                                        <th><input type="checkbox" id="select-all-calls"></th>
+                                        <th>Last</th>
+                                        <th>Bid</th>
+                                        <th>Ask</th>
+                                        <th>Vol</th>
+                                        <th>OI</th>
+                                        <th>Change</th>
+                                        <th>IV</th>
+                                        <th></th>
+                                        <th>IV</th>
+                                        <th>Change</th>
+                                        <th>OI</th>
+                                        <th>Vol</th>
+                                        <th>Ask</th>
+                                        <th>Bid</th>
+                                        <th>Last</th>
+                                        <th><input type="checkbox" id="select-all-puts"></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="selectable-options-body">
+                                    <!-- Selectable options will be dynamically inserted here -->
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <!-- OI Data Quality Note -->
+                        <div class="oi-data-note" style="margin-top: 1rem; padding: 0.75rem; background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 4px; font-size: 0.9rem;">
+                            <strong>Note about Open Interest (OI) data:</strong>
+                            <ul style="margin: 0.5rem 0 0 1.5rem; padding: 0;">
+                                <li><span class="oi-missing">0*</span> = OI data not available from Yahoo Finance</li>
+                                <li><span class="oi-zero">0</span> = OI is actually 0 (no open contracts)</li>
+                                <li>Hover over OI values for more details</li>
+                            </ul>
+                        </div>
+                        
+                        <!-- Selected Options Summary -->
+                        <div id="selected_options_summary" class="selected-summary" style="display: none;">
+                            <h4>Selected Options (<span id="selected_count">0</span>)</h4>
+                            <div id="selected_options_list" class="selected-list">
+                                <!-- Selected options will be displayed here -->
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="step-actions">
+                        <button class="btn btn-secondary" onclick="previousStep()">Previous</button>
+                        <button class="btn btn-primary" onclick="nextStep()" id="step2_next" disabled>Next: Run Simulation</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 3: User Selection -->
+            <!-- Removed Step 3 content -->
+
+            <!-- Step 3: Run Simulation -->
+            <div id="step-3" class="workflow-step">
+                <div class="step-header">
+                    <h3>Step 3: Run Simulation</h3>
+                    <p>Configure and execute the LSMC simulation for selected options</p>
+                </div>
+                
+                <div class="step-content">
+                    <!-- Simulation Configuration -->
+                    <div class="simulation-config">
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label for="batch_size">Batch Size</label>
+                                <div class="slider-container">
+                                    <input type="range" id="batch_size" min="100" max="10000" step="100" value="1000">
+                                    <span class="slider-value">1,000</span>
+                                </div>
+                                <small class="form-help">Number of paths per batch (higher = more accurate but slower)</small>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="max_paths">Max Paths</label>
+                                <div class="slider-container">
+                                    <input type="range" id="max_paths" min="1000" max="100000" step="1000" value="10000">
+                                    <span class="slider-value">10,000</span>
+                                </div>
+                                <small class="form-help">Maximum total simulation paths</small>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="tolerance">Convergence Tolerance</label>
+                                <div class="slider-container">
+                                    <input type="range" id="tolerance" min="0.001" max="0.1" step="0.001" value="0.01">
+                                    <span class="slider-value">0.01</span>
+                                </div>
+                                <small class="form-help">Early stopping tolerance (lower = more precise)</small>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="greek_shift">Greek Shift</label>
+                                <div class="slider-container">
+                                    <input type="range" id="greek_shift" min="0.001" max="0.1" step="0.001" value="0.01">
+                                    <span class="slider-value">0.01</span>
+                                </div>
+                                <small class="form-help">Finite difference shift for Greeks calculation</small>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Simulation Progress -->
+                    <div id="simulation_progress" class="simulation-progress" style="display: none;">
+                        <div class="progress-info">
+                            <h4>Running LSMC Simulation</h4>
+                            <div class="progress-bar-container">
+                                <div class="progress-bar-fill" id="simulation_progress_bar"></div>
+                            </div>
+                            <div class="progress-details">
+                                <span id="progress_text">Initializing...</span>
+                                <span id="progress_percentage">0%</span>
+                            </div>
+                            <div class="progress-stats">
+                                <span id="completed_options">0</span> / <span id="total_options">0</span> options completed
+                            </div>
+                        </div>
+                        <button class="btn btn-danger" onclick="cancelSimulation()" id="cancel_simulation">Cancel</button>
+                    </div>
+                    
+                    <!-- Simulation Log -->
+                    <div id="simulation_log" class="simulation-log" style="display: none;">
+                        <h4>Simulation Log</h4>
+                        <div id="log_content" class="log-content">
+                            <!-- Log messages will appear here -->
+                        </div>
+                        <button class="btn btn-sm btn-secondary" onclick="downloadLog()">Download Log</button>
+                    </div>
+                    
+                    <div class="step-actions">
+                        <button class="btn btn-secondary" onclick="previousStep()">Previous</button>
+                        <button class="btn btn-primary" onclick="runSimulation()" id="run_simulation">Run LSMC Simulation</button>
+                        <button class="btn btn-primary" onclick="nextStep()" id="step3_next" disabled style="display: none;">Next: View Results</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 4: View Results -->
+            <div id="step-4" class="workflow-step">
+                <div class="step-header">
+                    <h3>Step 4: View Results</h3>
+                    <p>Analyze simulation results and compare fair value vs market price</p>
+                </div>
+                
+                <div class="step-content">
+                    <!-- Results Summary -->
+                    <div id="results_summary" class="results-summary">
+                        <div class="summary-cards">
+                            <div class="summary-card">
+                                <h4>Total Options</h4>
+                                <span id="total_simulated">0</span>
+                            </div>
+                            <div class="summary-card">
+                                <h4>Underpriced</h4>
+                                <span id="underpriced_count" class="positive">0</span>
+                            </div>
+                            <div class="summary-card">
+                                <h4>Overpriced</h4>
+                                <span id="overpriced_count" class="negative">0</span>
+                            </div>
+                            <div class="summary-card">
+                                <h4>Avg Mispricing</h4>
+                                <span id="avg_mispricing">0%</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Results Table -->
+                    <div class="results-table-container">
+                        <div class="table-controls">
+                            <div class="table-filters">
+                                <input type="text" id="results_search" placeholder="Search options...">
+                                <select id="results_sort">
+                                    <option value="mispricing">Sort by Mispricing</option>
+                                    <option value="strike">Sort by Strike</option>
+                                    <option value="type">Sort by Type</option>
+                                    <option value="expiry">Sort by Expiry</option>
+                                </select>
+                            </div>
+                            <div class="table-actions">
+                                <button class="btn btn-sm btn-secondary" onclick="exportResults()">Export CSV</button>
+                                <button class="btn btn-sm btn-secondary" onclick="copyResults()">Copy to Clipboard</button>
+                            </div>
+                        </div>
+                        
+                        <div class="results-table-wrapper">
+                            <table id="results_table" class="results-table">
+                                <thead>
+                                    <tr>
+                                        <th class="sortable" data-sort="ticker">Ticker</th>
+                                        <th class="sortable" data-sort="type">Type</th>
+                                        <th class="sortable" data-sort="strike">Strike</th>
+                                        <th class="sortable" data-sort="expiry">Expiry</th>
+                                        <th class="sortable" data-sort="market_price">Market Price</th>
+                                        <th class="sortable" data-sort="simulated_price">Simulated Price</th>
+                                        <th class="sortable" data-sort="difference">Difference</th>
+                                        <th class="sortable" data-sort="mispricing">% Mispricing</th>
+                                        <th class="sortable" data-sort="delta">Delta</th>
+                                        <th class="sortable" data-sort="gamma">Gamma</th>
+                                        <th class="sortable" data-sort="vega">Vega</th>
+                                        <th class="sortable" data-sort="theta">Theta</th>
+                                        <th class="sortable" data-sort="rho">Rho</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="results_table_body">
+                                    <!-- Results will be populated here -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <!-- Results Charts -->
+                    <div class="results-charts">
+                        <div class="chart-container">
+                            <h4>Mispricing vs Strike Price</h4>
+                            <canvas id="mispricing_chart"></canvas>
+                        </div>
+                        <div class="chart-container">
+                            <h4>Greeks Distribution</h4>
+                            <canvas id="greeks_chart"></canvas>
+                        </div>
+                    </div>
+                    
+                    <div class="step-actions">
+                        <button class="btn btn-secondary" onclick="previousStep()">Previous</button>
+                        <button class="btn btn-primary" onclick="startNewSimulation()">New Simulation</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/lsmc-dashboard.js') }}"></script>
+</body>
+</html> 

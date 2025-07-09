@@ -26,13 +26,13 @@ class DataStorage:
                         If None, creates a new one.
         """
         self.db_manager = database_manager or DatabaseManager()
-        self.url_manager = url_manager or URLManager(self.db_manager)
+        self.url_manager = url_manager or URLManager()
         
         # Ensure results directory exists for CSV exports
         self.results_dir = Path(__file__).parent.parent.parent / 'data' / 'results'
         self.results_dir.mkdir(parents=True, exist_ok=True)
     
-    def save_tickers_to_database(self, url_name: str, tickers: List[str], status: str = 'completed', error_message: Optional[str] = None, content_hash: Optional[str] = None, dedup_reason: Optional[str] = None) -> Optional[int]:
+    def save_tickers_to_database(self, tickers: List[str], session_id: int) -> Optional[int]:
         """Save ticker data to SQLite database.
         
         Args:
@@ -40,50 +40,28 @@ class DataStorage:
             tickers: List of ticker symbols
             status: Status of the scraping session ('completed', 'failed', etc.)
             error_message: Error message if scraping failed
-            content_hash: Hash of the scraped content for deduplication
-            dedup_reason: Reason for deduplication if session was skipped
             
         Returns:
             Session ID if successful, None otherwise
         """
         try:
-            # Get URL ID
-            url_data = self.url_manager.get_url_by_name(url_name)
-            if not url_data:
-                logger.error(f"URL '{url_name}' not found in database")
-                return None
             
-            url_id = url_data['id']
             
-            # Use a single connection for the entire operation
-            with self.db_manager.get_connection() as conn:
-                cursor = conn.cursor()
-                
-                # Create scraping session
-                cursor.execute(
-                    "INSERT INTO scraping_sessions (url_id, status, ticker_count, error_message, content_hash, dedup_reason) VALUES (?, ?, ?, ?, ?, ?)",
-                    (url_id, status, len(tickers), error_message, content_hash, dedup_reason)
+            
+            
+            # Insert ticker data
+            if tickers:
+                ticker_data = [(session_id, ticker) for ticker in tickers]
+                self.db_manager.execute_many(
+                    "INSERT INTO ticker_results (session_id, ticker_symbol) VALUES (?, ?)",
+                    ticker_data
                 )
                 
-                # Get session ID from the same connection
-                session_id = cursor.lastrowid
-                
-                # Insert ticker data
-                if tickers:
-                    ticker_data = [(session_id, ticker) for ticker in tickers]
-                    cursor.executemany(
-                        "INSERT INTO ticker_results (session_id, ticker_symbol) VALUES (?, ?)",
-                        ticker_data
-                    )
-                    
-                    # Update session ticker count
-                    cursor.execute(
-                        "UPDATE scraping_sessions SET ticker_count = ? WHERE id = ?",
-                        (len(tickers), session_id)
-                    )
-                
-                # Commit all changes
-                conn.commit()
+                # Update session ticker count
+                self.db_manager.execute_update(
+                    "UPDATE scraping_sessions SET ticker_count = ? WHERE id = ?",
+                    (len(tickers), session_id)
+                )
             
             logger.info(f"Saved {len(tickers)} tickers to database for session {session_id}")
             return session_id
@@ -92,21 +70,23 @@ class DataStorage:
             logger.error(f"Error saving tickers to database: {e}")
             return None
     
-    def save_tickers_to_csv(self, url_name: str, tickers: List[str], content_hash: Optional[str] = None, dedup_reason: Optional[str] = None) -> Optional[str]:
+    def save_tickers_to_csv(self, url_name: str, tickers: List[str], scrape_result: Dict[str, Any]) -> Optional[str]:
         """Save ticker data to CSV file (for backward compatibility).
         
         Args:
             url_name: Name of the URL that was scraped
             tickers: List of ticker symbols
-            content_hash: Hash of the scraped content for deduplication
-            dedup_reason: Reason for deduplication if session was skipped
             
         Returns:
             Path to the CSV file if successful, None otherwise
         """
         try:
-            # Save to database first
-            session_id = self.save_tickers_to_database(url_name, tickers, content_hash=content_hash, dedup_reason=dedup_reason)
+            # Save to database
+            session_id = scrape_result.get('session_id')
+            if not session_id:
+                logger.error(f"No session_id found in scrape_result for URL '{url_name}'")
+                return None
+            session_id = self.save_tickers_to_database(tickers, session_id)
             if not session_id:
                 return None
             

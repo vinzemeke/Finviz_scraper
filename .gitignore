@@ -1,0 +1,18 @@
+# Ignore secrets
+config/secrets.py 
+
+# Virtual Environment
+venv/
+
+# Python cache
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# OS-specific
+.DS_Store
+
+# Database files
+data/finviz_scraper.db
+data/finviz_scraper.db-shm
+data/finviz_scraper.db-wal

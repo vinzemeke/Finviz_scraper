@@ -24,16 +24,23 @@ class TestURLManager:
     @pytest.fixture
     def db_manager(self, temp_db_path):
         """Create a DatabaseManager instance with temporary database."""
-        return DatabaseManager(temp_db_path)
+        db_manager = DatabaseManager(temp_db_path)
+        from src.database.migration import MigrationManager
+        migration_manager = MigrationManager(db_path=temp_db_path)
+        migration_manager.run_migrations()
+        db_manager.clear_all_data() # Ensure a clean slate for each test
+        return db_manager
     
     @pytest.fixture
     def url_manager(self, db_manager):
         """Create a URLManager instance with temporary database."""
         return URLManager(db_manager)
     
-    def test_init_empty_storage(self, temp_db_path):
+    def test_init_empty_storage(self, db_manager):
         """Test initialization with empty database."""
-        manager = URLManager()
+        # Ensure the database is empty before testing
+        db_manager.clear_all_data()
+        manager = URLManager(db_manager)
         urls = manager.list_urls()
         assert urls == []
     

@@ -24,6 +24,10 @@ class FinvizScraper:
             return False
         return True
 
+    def validate_url(self, url: str) -> bool:
+        """Alias for validate_finviz_url for backward compatibility."""
+        return self.validate_finviz_url(url)
+
     def extract_ticker_symbols(self, url: str) -> List[str]:
         """Extract ticker symbols from a Finviz screener page."""
         if not self.validate_finviz_url(url):

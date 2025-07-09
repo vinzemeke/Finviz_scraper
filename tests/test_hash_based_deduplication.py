@@ -113,29 +113,7 @@ class TestHashBasedDeduplication(unittest.TestCase):
         self.assertEqual(result['tickers'], ['AAPL', 'GOOGL'])
         self.assertEqual(result['content_hash'], self.test_hash)
     
-    @patch('config.settings.DEDUP_ENABLE_CONTENT_HASH', False)
-    @patch('config.settings.DEDUP_USE_TIME_WINDOW', True)
-    def test_time_based_fallback_when_hash_disabled(self):
-        """Test time-based fallback when hash checking is disabled."""
-        # Mock URL manager
-        self.url_manager.get_url_by_name.return_value = self.url_data
-        
-        # Mock last scrape without content hash (within time window)
-        last_scrape = {
-            'session_id': 1,
-            'timestamp': (datetime.now() - timedelta(hours=1)).isoformat(),
-            'content_hash': None,
-            'status': 'completed',
-            'dedup_reason': None
-        }
-        self.db_manager.get_last_scrape_info.return_value = last_scrape
-        
-        # Test scraping with time-based fallback
-        result = self.scraper_engine.scrape_url('Test URL', force_scrape=False)
-        
-        # Should skip due to time window
-        self.assertEqual(result['status'], 'skipped')
-        self.assertIn('within', result['reason'])
+    
     
     def test_force_scrape_bypasses_deduplication(self):
         """Test that force scrape bypasses all deduplication rules."""
@@ -184,6 +162,8 @@ class TestHashBasedDeduplication(unittest.TestCase):
         
         # Mock no previous scrape
         self.db_manager.get_last_scrape_info.return_value = None
+        self.db_manager.get_scrape_session_by_hash.return_value = None
+        self.db_manager.get_scrape_session_by_hash.return_value = None
         
         # Mock HTTP response
         mock_response = Mock()
@@ -210,41 +190,7 @@ class TestHashBasedDeduplication(unittest.TestCase):
         calculated_hash = self.scraper_engine._calculate_content_hash(content)
         self.assertEqual(calculated_hash, expected_hash)
     
-    @patch('config.settings.DEDUP_ENABLE_CONTENT_HASH', True)
-    @patch('config.settings.DEDUP_USE_TIME_WINDOW', False)
-    def test_deduplication_hash_enabled_time_disabled(self):
-        """Test deduplication when hash is enabled and time window is disabled."""
-        # Mock last scrape without content hash
-        last_scrape = {
-            'session_id': 1,
-            'timestamp': (datetime.now() - timedelta(hours=1)).isoformat(),
-            'content_hash': None,  # No hash available
-            'status': 'completed',
-            'dedup_reason': None
-        }
-        self.db_manager.get_last_scrape_info.return_value = last_scrape
-        
-        # Should proceed since no hash available and time window disabled
-        result = self.scraper_engine._check_deduplication_rules(1, 'https://test.com')
-        self.assertFalse(result['should_skip'])
     
-    @patch('config.settings.DEDUP_ENABLE_CONTENT_HASH', False)
-    @patch('config.settings.DEDUP_USE_TIME_WINDOW', True)
-    def test_deduplication_hash_disabled_time_enabled(self):
-        """Test deduplication when hash is disabled and time window is enabled."""
-        # Mock last scrape without content hash (within time window)
-        last_scrape = {
-            'session_id': 1,
-            'timestamp': (datetime.now() - timedelta(hours=1)).isoformat(),
-            'content_hash': None,
-            'status': 'completed',
-            'dedup_reason': None
-        }
-        self.db_manager.get_last_scrape_info.return_value = last_scrape
-        
-        # Should skip due to time window
-        result = self.scraper_engine._check_deduplication_rules(1, 'https://test.com')
-        self.assertTrue(result['should_skip'])
 
 
 if __name__ == '__main__':

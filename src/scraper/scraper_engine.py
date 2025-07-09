@@ -28,6 +28,7 @@ class ScraperEngine:
             url_manager: URL manager instance
             time_window_hours: Hours after which a URL should be re-scraped (default: from config)
         """
+        
         self.db_manager = db_manager
         self.url_manager = url_manager
         self.time_window_hours = time_window_hours or DEDUP_TIME_WINDOW_HOURS
@@ -63,9 +64,11 @@ class ScraperEngine:
                 logger.info(f"Skipping scrape for '{url_name}': {dedup_result['reason']}")
                 # Log the skip if enabled
                 if DEDUP_LOG_SKIPS:
-                    self.db_manager.log_scrape_session(
+                    session_id = self.db_manager.log_scrape_session(
                         url_id, 'skipped', 0, None, dedup_result.get('content_hash'), dedup_result['reason']
                     )
+                else:
+                    session_id = None
                 return {
                     'url_name': url_name,
                     'url_id': url_id,
@@ -73,7 +76,8 @@ class ScraperEngine:
                     'status': 'skipped',
                     'reason': dedup_result['reason'],
                     'last_scrape': dedup_result.get('last_scrape'),
-                    'content_hash': dedup_result.get('content_hash')
+                    'content_hash': dedup_result.get('content_hash'),
+                    'session_id': session_id
                 }
         
         # Perform actual scraping
@@ -92,24 +96,31 @@ class ScraperEngine:
                     logger.info(f"Content unchanged for '{url_name}', skipping processing")
                     # Log the skip if enabled
                     if DEDUP_LOG_SKIPS:
-                        self.db_manager.log_scrape_session(
+                        session_id = self.db_manager.log_scrape_session(
                             url_id, 'skipped', 0, None, content_hash, 
                             f"skipped: content unchanged (hash: {content_hash[:8]}...)"
                         )
+                    else:
+                        session_id = None
                     return {
                         'url_name': url_name,
                         'url_id': url_id,
                         'tickers': [],
                         'status': 'skipped',
                         'reason': f"Content unchanged (hash: {content_hash[:8]}...)",
-                        'content_hash': content_hash
+                        'content_hash': content_hash,
+                        'session_id': session_id
                     }
             
             # Parse content and extract tickers
             soup = BeautifulSoup(response.content, 'html.parser')
             tickers = self.pagination_handler.scrape_all_pages(url)
             
-            # Don't log session here - let data storage handle it when saving tickers
+            # Log successful scrape
+            session_id = self.db_manager.log_scrape_session(
+                url_id, 'completed', len(tickers), None, content_hash, None
+            )
+            
             logger.info(f"Successfully scraped {len(tickers)} tickers from '{url_name}'")
             
             return {
@@ -119,7 +130,8 @@ class ScraperEngine:
                 'status': 'completed',
                 'reason': None,
                 'content_hash': content_hash,
-                'ticker_count': len(tickers)
+                'ticker_count': len(tickers),
+                'session_id': session_id
             }
             
         except Exception as e:
@@ -127,7 +139,7 @@ class ScraperEngine:
             logger.error(f"Error scraping '{url_name}': {error_msg}")
             
             # Log failed scrape
-            self.db_manager.log_scrape_session(
+            session_id = self.db_manager.log_scrape_session(
                 url_id, 'failed', 0, error_msg, None, None
             )
             
@@ -135,42 +147,30 @@ class ScraperEngine:
     
     def _check_deduplication_rules(self, url_id: int, url: str) -> Dict[str, Any]:
         """Check if scraping should be skipped based on hash-based deduplication rules.
-        
+
         Args:
             url_id: Database ID of the URL
             url: The actual URL string
-            
+
         Returns:
             Dictionary with deduplication decision and metadata
         """
         # Get last scrape info
         last_scrape = self.db_manager.get_last_scrape_info(url_id)
-        
+
         if not last_scrape:
             logger.debug(f"No previous scrape found for URL ID {url_id}")
             return {'should_skip': False, 'reason': None}
+
         
-        # Primary deduplication: Hash-based checking
+
+        # Hash-based checking
         if DEDUP_ENABLE_CONTENT_HASH and last_scrape.get('content_hash'):
             # We'll check the hash after fetching the content to compare
             # This is handled in the main scrape_url method
             logger.debug(f"Hash-based deduplication enabled, will check content hash")
             return {'should_skip': False, 'reason': None, 'last_scrape': last_scrape}
-        
-        # Secondary deduplication: Time-based checking (only if hash checking is disabled)
-        if DEDUP_USE_TIME_WINDOW:
-            last_timestamp = datetime.fromisoformat(last_scrape['timestamp'].replace('Z', '+00:00'))
-            time_diff = datetime.now(last_timestamp.tzinfo) - last_timestamp
-            
-            if time_diff < timedelta(hours=self.time_window_hours):
-                logger.debug(f"Last scrape was {time_diff} ago, within {self.time_window_hours}h window")
-                return {
-                    'should_skip': True,
-                    'reason': f"Last scraped {time_diff} ago (within {self.time_window_hours}h window)",
-                    'last_scrape': last_scrape,
-                    'content_hash': last_scrape.get('content_hash')
-                }
-        
+
         logger.debug(f"Deduplication checks passed, proceeding with scrape")
         return {'should_skip': False, 'reason': None, 'last_scrape': last_scrape}
     
@@ -183,6 +183,8 @@ class ScraperEngine:
         Returns:
             SHA256 hash string
         """
+        if not isinstance(content, bytes):
+            content = str(content).encode('utf-8')
         return hashlib.sha256(content).hexdigest()
     
     def get_scrape_stats(self, url_name: str) -> Dict[str, Any]:
@@ -223,4 +225,4 @@ class ScraperEngine:
         Returns:
             True if valid Finviz URL, False otherwise
         """
-        return self.finviz_scraper.validate_url(url) 
+        return self.finviz_scraper.validate_finviz_url(url) 

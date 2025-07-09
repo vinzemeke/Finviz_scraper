@@ -1,0 +1,36 @@
+<div id="Results" class="tab-content">
+    <h3>Simulation Results</h3>
+    <div class="results-filter-section">
+        <label for="results-ticker-filter">Filter by Ticker:</label>
+        <input type="text" id="results-ticker-filter" placeholder="e.g., AAPL">
+        <button id="apply-results-filter" class="btn btn-secondary">Apply Filter</button>
+        <button id="clear-results-filter" class="btn btn-secondary">Clear Filter</button>
+    </div>
+    <div class="results-table-container">
+        <table id="simulation-results-table">
+            <thead>
+                <tr>
+                    <th>Ticker</th>
+                    <th>Option Symbol</th>
+                    <th>Estimated Price</th>
+                    <th>Probability of Profit</th>
+                    <th>Probability of Breakeven</th>
+                    <th>Probability of Loss</th>
+                    <th>Risk-Reward Ratio</th>
+                    <th>Created At</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Simulation results will be loaded here by JavaScript -->
+                <tr class="loading-message"><td colspan="9">Loading simulation results...</td></tr>
+                <tr class="error-message" style="display:none;"><td colspan="9">Error loading simulation results.</td></tr>
+                <tr class="no-data-message" style="display:none;"><td colspan="9">No simulation results found.</td></tr>
+            </tbody>
+        </table>
+    </div>
+    <div class="results-export-section">
+        <button id="export-csv-button" class="btn btn-primary">Export to CSV</button>
+        <button id="export-excel-button" class="btn btn-primary">Export to Excel</button>
+    </div>
+</div>

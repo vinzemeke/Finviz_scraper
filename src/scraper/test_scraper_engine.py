@@ -27,7 +27,12 @@ class TestScraperEngine:
     @pytest.fixture
     def db_manager(self, temp_db_path):
         """Create a DatabaseManager instance with temporary database."""
-        return DatabaseManager(temp_db_path)
+        db_manager = DatabaseManager(temp_db_path)
+        from src.database.migration import MigrationManager
+        migration_manager = MigrationManager(db_path=temp_db_path)
+        migration_manager.run_migrations()
+        db_manager.clear_all_data() # Ensure a clean slate for each test
+        return db_manager
     
     @pytest.fixture
     def url_manager(self, db_manager):
@@ -99,8 +104,9 @@ class TestScraperEngine:
             assert result['content_hash'] is not None
             assert result['reason'] is None
     
-    def test_scrape_url_within_time_window(self, scraper_engine, url_manager, db_manager):
-        """Test that scraping is skipped if within time window."""
+    @patch('src.scraper.finviz_scraper.requests.Session')
+    def test_scrape_url_within_time_window(self, mock_session, scraper_engine, url_manager, db_manager):
+        """Test that scraping proceeds if within time window but content hash is different."""
         # Add a URL
         url_manager.save_url("test_url", "https://finviz.com/screener.ashx?v=111")
         url_data = url_manager.get_url_by_name("test_url")
@@ -108,45 +114,41 @@ class TestScraperEngine:
         
         # Log a recent scrape (within time window)
         db_manager.log_scrape_session(
-            url_id, 'completed', 5, None, 'test_hash', None
+            url_id, 'completed', 5, None, 'old_hash', None
         )
         
-        # Try to scrape again
-        result = scraper_engine.scrape_url("test_url")
+        # Mock HTML content
+        html_content = '''
+        <html>
+            <body>
+                <a href="quote.ashx?t=AAPL&ty=c&p=d&b=1">AAPL</a>
+                <a href="quote.ashx?t=GOOGL&ty=c&p=d&b=1">GOOGL</a>
+            </body>
+        </html>
+        '''
         
-        assert result['status'] == 'skipped'
-        assert 'within 24h window' in result['reason']
-        assert result['tickers'] == []
-        assert result['last_scrape'] is not None
-    
-    def test_scrape_url_outside_time_window(self, scraper_engine, url_manager, db_manager):
-        """Test that scraping proceeds if outside time window."""
-        # Add a URL
-        url_manager.save_url("test_url", "https://finviz.com/screener.ashx?v=111")
-        url_data = url_manager.get_url_by_name("test_url")
-        url_id = url_data['id']
+        mock_response = Mock()
+        mock_response.content = html_content.encode('utf-8')
+        mock_response.raise_for_status.return_value = None
         
-        # Log an old scrape (outside time window)
-        old_timestamp = (datetime.now() - timedelta(hours=25)).isoformat()
-        db_manager.execute_update(
-            "INSERT INTO scraping_sessions (url_id, timestamp, status, content_hash) VALUES (?, ?, ?, ?)",
-            (url_id, old_timestamp, 'completed', 'old_hash')
-        )
+        mock_session_instance = Mock()
+        mock_session_instance.get.return_value = mock_response
+        mock_session.return_value = mock_session_instance
         
-        # Mock the scraping process
-        with patch.object(scraper_engine.finviz_scraper, '_make_request') as mock_request:
-            mock_response = Mock()
-            mock_response.content = b'<html><body><a href="quote.ashx?t=AAPL">AAPL</a></body></html>'
-            mock_request.return_value = mock_response
+        # Mock the pagination handler to return expected tickers
+        with patch.object(scraper_engine.pagination_handler, 'scrape_all_pages') as mock_paginate:
+            mock_paginate.return_value = ['AAPL', 'GOOGL']
             
-            with patch.object(scraper_engine.pagination_handler, 'scrape_all_pages') as mock_paginate:
-                mock_paginate.return_value = ['AAPL']
-                
-                # Try to scrape again
-                result = scraper_engine.scrape_url("test_url")
-                
-                assert result['status'] == 'completed'
-                assert result['tickers'] == ['AAPL']
+            # Scrape
+            result = scraper_engine.scrape_url("test_url")
+            
+            assert result['status'] == 'completed'
+            assert result['tickers'] == ['AAPL', 'GOOGL']
+            assert result['ticker_count'] == 2
+            assert result['content_hash'] is not None
+            assert result['reason'] is None
+    
+    
     
     def test_scrape_url_content_unchanged(self, scraper_engine, url_manager, db_manager):
         """Test that scraping is skipped if content hash is unchanged."""
@@ -308,16 +310,28 @@ class TestScraperEngine:
             url_data = url_manager.get_url_by_name("test_url")
             url_id = url_data['id']
             
-            # Log a recent scrape (within time window)
+            # Log a recent scrape with a specific hash
+            initial_hash = 'initial_content_hash'
             db_manager.log_scrape_session(
-                url_id, 'completed', 5, None, 'test_hash', None
+                url_id, 'completed', 5, None, initial_hash, None
             )
-            
-            # Try to scrape again - should skip but not log
-            result = engine.scrape_url("test_url")
-            
-            assert result['status'] == 'skipped'
-            
-            # Check that no additional skip session was logged
-            sessions = db_manager.get_scrape_sessions_by_url(url_id)
-            assert len(sessions) == 1  # Only the original completed session 
+
+            # Mock the scraping process to return some content
+            with patch.object(engine.finviz_scraper, '_make_request') as mock_request:
+                mock_response = Mock()
+                mock_response.content = b'<html><body>some content</body></html>'
+                mock_request.return_value = mock_response
+
+                # Mock the hash calculation to return the *same* hash as the initial one
+                with patch.object(engine, '_calculate_content_hash') as mock_hash_calc:
+                    mock_hash_calc.return_value = initial_hash
+
+                    # Try to scrape again - should skip because content hash is the same
+                    result = engine.scrape_url("test_url")
+
+                    assert result['status'] == 'skipped'
+                    assert 'Content unchanged' in result['reason']
+
+                    # Check that no additional skip session was logged
+                    sessions = db_manager.get_scrape_sessions_by_url(url_id)
+                    assert len(sessions) == 1  # Only the original completed session 

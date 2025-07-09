@@ -1,4 +1,79 @@
-{
-  "TPS SCANNER_hh": "https://finviz.com/screener.ashx?v=171&f=sh_avgvol_o300,sh_price_o15,sh_short_o15,ta_highlow52w_b0to10h&ft=4",
-  "Smart Money": "https://finviz.com/screener.ashx?v=111&f=fa_sales5years_pos,sh_instown_o60,sh_insttrans_pos,sh_short_o10,targetprice_below&ft=4"
-}
+[
+    {
+        "id": 2,
+        "name": "url1",
+        "url": "https://finviz.com/url1",
+        "created_at": "2025-06-30T06:25:25.088189",
+        "updated_at": "2025-06-30T06:25:25.088196"
+    },
+    {
+        "id": 3,
+        "name": "url2",
+        "url": "https://finviz.com/url2",
+        "created_at": "2025-06-30T06:25:25.088510",
+        "updated_at": "2025-06-30T06:25:25.088514"
+    },
+    {
+        "id": 3,
+        "name": "test_url",
+        "url": "https://finviz.com/new",
+        "created_at": "2025-06-30T06:25:25.096103",
+        "updated_at": "2025-06-30T06:25:25.100110"
+    },
+    {
+        "id": 4,
+        "name": "new_name",
+        "url": "https://finviz.com/new",
+        "created_at": "2025-06-30T06:25:25.098228",
+        "updated_at": "2025-06-30T06:25:25.098377"
+    },
+    {
+        "id": 5,
+        "name": "tech_stocks",
+        "url": "https://finviz.com/tech",
+        "created_at": "2025-06-30T06:25:25.101642",
+        "updated_at": "2025-06-30T06:25:25.101644"
+    },
+    {
+        "id": 6,
+        "name": "finance_stocks",
+        "url": "https://finviz.com/finance",
+        "created_at": "2025-06-30T06:25:25.101781",
+        "updated_at": "2025-06-30T06:25:25.101782"
+    },
+    {
+        "id": 7,
+        "name": "healthcare_stocks",
+        "url": "https://finviz.com/healthcare",
+        "created_at": "2025-06-30T06:25:25.101909",
+        "updated_at": "2025-06-30T06:25:25.101910"
+    },
+    {
+        "id": 8,
+        "name": "UPDATED SCANNER",
+        "url": "https://finviz.com/screener.ashx?v=111&f=cap_large",
+        "created_at": "2025-06-30T06:25:25.119925",
+        "updated_at": "2025-06-30T06:25:27.876351"
+    },
+    {
+        "id": 9,
+        "name": "TPS SCANNER",
+        "url": "https://finviz.com/screener.ashx?v=171&f=sh_avgvol_o300,sh_price_o15,sh_short_o15,ta_highlow52w_b0to10h&ft=4",
+        "created_at": "2025-06-30T06:25:27.890532",
+        "updated_at": "2025-06-30T06:25:27.890537"
+    },
+    {
+        "id": 10,
+        "name": "FORCE TEST",
+        "url": "https://finviz.com/screener.ashx?v=171&f=cap_large",
+        "created_at": "2025-06-30T06:25:27.894960",
+        "updated_at": "2025-06-30T06:25:27.894967"
+    },
+    {
+        "id": 11,
+        "name": "STATS TEST",
+        "url": "https://finviz.com/screener.ashx?v=171&f=cap_large",
+        "created_at": "2025-06-30T06:25:32.727691",
+        "updated_at": "2025-06-30T06:25:32.727699"
+    }
+]

@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Options Chain Rendering</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/lsmc-dashboard.css') }}">
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background-color: #f4f7f6; }
+        .options-chain-grid { margin-top: 20px; }
+        .options-table { width: 100%; border-collapse: collapse; background-color: #ffffff; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .options-table th, .options-table td { padding: 10px; border: 1px solid #e0e0e0; text-align: center; }
+        .options-table thead th { background-color: #f0f0f0; font-weight: bold; }
+        .calls-header { background-color: #e6f7ff; }
+        .puts-header { background-color: #fff0e6; }
+        .strike-header { background-color: #f9f9f9; }
+        .positive { color: #28a745; }
+        .negative { color: #dc3545; }
+        .oi-missing { color: #6c757d; font-style: italic; }
+        .oi-zero { color: #6c757d; }
+        .text-center { text-align: center; }
+        .text-danger { color: #dc3545; }
+    </style>
+</head>
+<body>
+    <h1>Test Options Chain Rendering</h1>
+
+    <div class="options-chain-container">
+        <div class="options-chain-grid">
+            <table class="options-table selectable">
+                <thead>
+                    <tr>
+                        <th colspan="7" class="calls-header">Call Options</th>
+                        <th class="strike-header">Strike</th>
+                        <th colspan="7" class="puts-header">Put Options</th>
+                    </tr>
+                    <tr>
+                        <th><input type="checkbox" id="select-all-calls"></th>
+                        <th>Last</th>
+                        <th>Bid</th>
+                        <th>Ask</th>
+                        <th>Vol</th>
+                        <th>OI</th>
+                        <th>Change</th>
+                        <th>IV</th>
+                        <th></th>
+                        <th>IV</th>
+                        <th>Change</th>
+                        <th>OI</th>
+                        <th>Vol</th>
+                        <th>Ask</th>
+                        <th>Bid</th>
+                        <th>Last</th>
+                        <th><input type="checkbox" id="select-all-puts"></th>
+                    </tr>
+                </thead>
+                <tbody id="selectable-options-body">
+                    <!-- Options will be dynamically inserted here -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        // Mock data for testing
+        const mockOptionsChainData = {
+            current_price: 175.50,
+            options_chain: {
+                "2025-12-19": {
+                    calls: [
+                        { strike: 170, lastPrice: 6.00, bid: 5.90, ask: 6.10, volume: 1200, openInterest: 5000, change: 0.50, impliedVolatility: 0.25 },
+                        { strike: 175, lastPrice: 3.50, bid: 3.40, ask: 3.60, volume: 2500, openInterest: 8000, change: -0.20, impliedVolatility: 0.20 },
+                        { strike: 180, lastPrice: 1.50, bid: 1.40, ask: 1.60, volume: 800, openInterest: 3000, change: 0.10, impliedVolatility: 0.18 },
+                        { strike: 185, lastPrice: 0.75, bid: 0.70, ask: 0.80, volume: 300, openInterest: null, change: 0.05, impliedVolatility: 0.17 } // Test null OI
+                    ],
+                    puts: [
+                        { strike: 170, lastPrice: 1.20, bid: 1.10, ask: 1.30, volume: 700, openInterest: 4000, change: -0.15, impliedVolatility: 0.22 },
+                        { strike: 175, lastPrice: 2.80, bid: 2.70, ask: 2.90, volume: 1800, openInterest: 7000, change: 0.30, impliedVolatility: 0.28 },
+                        { strike: 180, lastPrice: 5.00, bid: 4.90, ask: 5.10, volume: 1000, openInterest: 2000, change: -0.05, impliedVolatility: 0.30 },
+                        { strike: 165, lastPrice: 0.50, bid: 0.45, ask: 0.55, volume: 100, openInterest: 0, change: 0.00, impliedVolatility: 0.20 } // Test zero OI
+                    ]
+                }
+            }
+        };
+
+        // Mock expirySelector for the renderOptionsTable function
+        const expirySelector = {
+            value: "2025-12-19"
+        };
+
+        // Mock updateSelectedOptions and updateSelectionDisplay functions
+        // These are needed to prevent errors from renderOptionsTable calling them
+        function updateSelectedOptions() {
+            console.log("updateSelectedOptions called (mock)");
+            // In a real scenario, this would update the selected options array and UI
+        }
+
+        function updateSelectionDisplay() {
+            console.log("updateSelectionDisplay called (mock)");
+            // In a real scenario, this would update the checkboxes based on selected options
+        }
+
+        // Function to format volume and open interest numbers in k format when over 999
+        function formatVolume(volume) {
+            if (volume === null || volume === undefined || volume === 0) {
+                return '0';
+            }
+            const num = parseInt(volume);
+            if (num > 999) {
+                return (num / 1000).toFixed(2) + 'k';
+            }
+            return num.toString();
+        }
+        
+        // Check if OI data is available (not null/undefined)
+        function isOIAvailable(value) {
+            return value !== null && value !== undefined;
+        }
+        
+        // Format OI with data quality indicator
+        function formatOI(oiValue) {
+            if (!isOIAvailable(oiValue)) {
+                return '<span class="oi-missing" title="OI data not available from Yahoo Finance">0*</span>';
+            }
+            if (oiValue === 0) {
+                return '<span class="oi-zero" title="OI is actually 0">0</span>';
+            }
+            return formatVolume(oiValue);
+        }
+
+        function renderOptionsTable(chain) {
+            const tableBody = document.getElementById('selectable-options-body');
+            tableBody.innerHTML = '';
+
+            // Combine all strikes from calls and puts, sort them, and remove duplicates
+            const allStrikes = [
+                ...chain.calls.map(c => c.strike),
+                ...chain.puts.map(p => p.strike)
+            ];
+            const strikes = Array.from(new Set(allStrikes)).sort((a, b) => a - b);
+
+            strikes.forEach((strike, index) => {
+                const call = chain.calls.find(c => c.strike === strike);
+                const put = chain.puts.find(p => p.strike === strike);
+
+                const row = document.createElement('tr');
+                row.className = index % 2 === 0 ? 'even-row' : 'odd-row';
+
+                // Calls
+                if (call) {
+                    const optionId = `call_${call.strike}_${expirySelector.value}`;
+                    const callChangeClass = call.change > 0 ? 'positive' : (call.change < 0 ? 'negative' : 'neutral');
+                    row.innerHTML += `
+                        <td><input type="checkbox" class="option-checkbox" data-option-id="${optionId}"></td>
+                        <td>${call.lastPrice.toFixed(2)}</td>
+                        <td>${call.bid.toFixed(2)}</td>
+                        <td>${call.ask.toFixed(2)}</td>
+                        <td>${formatVolume(call.volume)}</td>
+                        <td>${formatOI(call.openInterest)}</td>
+                        <td class="${callChangeClass}">${call.change.toFixed(2)}</td>
+                        <td>${(call.impliedVolatility * 100).toFixed(1)}%</td>
+                    `;
+                } else {
+                    // If no call for this strike, add empty cells to maintain alignment
+                    row.innerHTML += `<td colspan="8"></td>`;
+                }
+
+                // Strike
+                row.innerHTML += `<td class="strike-price">${strike.toFixed(2)}</td>`;
+
+                // Puts
+                if (put) {
+                    const optionId = `put_${put.strike}_${expirySelector.value}`;
+                    const putChangeClass = put.change > 0 ? 'positive' : (put.change < 0 ? 'negative' : 'neutral');
+                    row.innerHTML += `
+                        <td>${(put.impliedVolatility * 100).toFixed(1)}%</td>
+                        <td class="${putChangeClass}">${put.change.toFixed(2)}</td>
+                        <td>${formatOI(put.openInterest)}</td>
+                        <td>${formatVolume(put.volume)}</td>
+                        <td>${put.ask.toFixed(2)}</td>
+                        <td>${put.bid.toFixed(2)}</td>
+                        <td>${put.lastPrice.toFixed(2)}</td>
+                        <td><input type="checkbox" class="option-checkbox" data-option-id="${optionId}"></td>
+                    `;
+                } else {
+                    // If no put for this strike, add empty cells to maintain alignment
+                    row.innerHTML += `<td colspan="8"></td>`;
+                }
+
+                tableBody.appendChild(row);
+            });
+
+            // Add event listeners to checkboxes (mocked for this test file)
+            tableBody.querySelectorAll('.option-checkbox').forEach(cb => {
+                cb.addEventListener('change', updateSelectedOptions);
+            });
+
+            // Add event listeners for select all checkboxes (mocked for this test file)
+            document.getElementById('select-all-calls').addEventListener('change', function() {
+                const isChecked = this.checked;
+                tableBody.querySelectorAll('input[data-option-id^="call_"]').forEach(cb => {
+                    cb.checked = isChecked;
+                });
+                updateSelectedOptions();
+            });
+
+            document.getElementById('select-all-puts').addEventListener('change', function() {
+                const isChecked = this.checked;
+                tableBody.querySelectorAll('input[data-option-id^="put_"]').forEach(cb => {
+                    cb.checked = isChecked;
+                });
+                updateSelectedOptions();
+            });
+
+            updateSelectionDisplay(); // Call mock function
+        }
+
+        // Call the render function with mock data when the page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            renderOptionsTable(mockOptionsChainData.options_chain[expirySelector.value]);
+        });
+    </script>
+</body>
+</html>

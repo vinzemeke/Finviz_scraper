@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ticker Details - {{ ticker }}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/ticker-details.css') }}">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: {"50":"#eff6ff","100":"#dbeafe","200":"#bfdbfe","300":"#93c5fd","400":"#60a5fa","500":"#3b82f6","600":"#2563eb","700":"#1d4ed8","800":"#1e40af","900":"#1e3a8a","950":"#172554"}
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-gray-50 dark:bg-slate-900 text-gray-900 dark:text-white">
+    <div class="container mx-auto p-6">
+        <h1 class="text-3xl font-bold mb-6">Ticker Details: {{ ticker }}</h1>
+
+        {% with messages = get_flashed_messages() %}
+            {% if messages %}
+                <div class="mb-6">
+                    {% for message in messages %}
+                        <div class="bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 rounded-lg mb-2">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        {% if ticker_info %}
+            <div class="bg-white dark:bg-slate-800 rounded-lg shadow-md p-6 mb-6">
+                <h2 class="text-2xl font-semibold mb-4">Key Metrics</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div class="metric-item">
+                        <span class="metric-label">Current Price:</span>
+                        <span class="metric-value">${{ "%.2f" | format(ticker_info.current_price) if ticker_info.current_price is not none else 'N/A' }}</span>
+                    </div>
+                    <div class="metric-item">
+                        <span class="metric-label">Market Cap:</span>
+                        <span class="metric-value">{{ ticker_info.market_cap_formatted if ticker_info.market_cap_formatted is not none else 'N/A' }}</span>
+                    </div>
+                    <div class="metric-item">
+                        <span class="metric-label">P/E Ratio:</span>
+                        <span class="metric-value">{{ "%.2f" | format(ticker_info.pe_ratio) if ticker_info.pe_ratio is not none else 'N/A' }}</span>
+                    </div>
+                    <div class="metric-item">
+                        <span class="metric-label">8-day EMA:</span>
+                        <span class="metric-value">{{ "%.2f" | format(ticker_info.ema_8) if ticker_info.ema_8 is not none else 'N/A' }}</span>
+                    </div>
+                    <div class="metric-item">
+                        <span class="metric-label">21-day EMA:</span>
+                        <span class="metric-value">{{ "%.2f" | format(ticker_info.ema_21) if ticker_info.ema_21 is not none else 'N/A' }}</span>
+                    </div>
+                    <div class="metric-item">
+                        <span class="metric-label">200-day EMA:</span>
+                        <span class="metric-value">{{ "%.2f" | format(ticker_info.ema_200) if ticker_info.ema_200 is not none else 'N/A' }}</span>
+                    </div>
+                </div>
+            </div>
+
+            {% if chart_path %}
+                <div class="bg-white dark:bg-slate-800 rounded-lg shadow-md p-6">
+                    <h2 class="text-2xl font-semibold mb-4">Price Chart</h2>
+                    <div class="chart-container">
+                        <img src="{{ url_for('serve_chart', filename=chart_path.split('/')[-1]) }}" alt="{{ ticker }} Price Chart" class="w-full h-auto rounded-md shadow-sm">
+                    </div>
+                </div>
+            {% else %}
+                <div class="bg-white dark:bg-slate-800 rounded-lg shadow-md p-6">
+                    <p class="text-gray-600 dark:text-gray-400">No chart available for {{ ticker }}.</p>
+                </div>
+            {% endif %}
+
+        {% else %}
+            <div class="bg-white dark:bg-slate-800 rounded-lg shadow-md p-6">
+                <p class="text-gray-600 dark:text-gray-400">Could not retrieve details for {{ ticker }}.</p>
+            </div>
+        {% endif %}
+    </div>
+</body>
+</html>

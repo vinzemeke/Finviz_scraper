@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monte Carlo Options Simulator</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/sidebar.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/monte-carlo.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <h1>📈 Finviz Scraper</h1>
+            <p>Smart Stock Data Collection</p>
+        </div>
+        
+        <nav class="sidebar-nav">
+            <a href="/" class="nav-item">
+                <span class="nav-icon">🏠</span>
+                <span>Dashboard</span>
+            </a>
+            <a href="/stats" class="nav-item">
+                <span class="nav-icon">📊</span>
+                <span>Statistics</span>
+            </a>
+            <a href="/database_stats" class="nav-item">
+                <span class="nav-icon">🗄️</span>
+                <span>Database Stats</span>
+            </a>
+            <a href="/monte_carlo" class="nav-item active">
+                <span class="nav-icon">🎲</span>
+                <span>Monte Carlo</span>
+            </a>
+            <a href="/lsmc_dashboard" class="nav-item">
+                <span class="nav-icon">🧮</span>
+                <span>LSMC Pricing</span>
+            </a>
+        </nav>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <div class="container">
+            <div class="page-header">
+                <h2>Monte Carlo Options Pricing Simulator</h2>
+                <p>Advanced options pricing simulation with market data integration</p>
+            </div>
+
+            <!-- Progress Bar -->
+            <div class="progress-container">
+                <div class="progress-bar">
+                    <div class="progress-step active" data-step="1">1</div>
+                    <div class="progress-step" data-step="2">2</div>
+                    <div class="progress-step" data-step="3">3</div>
+                    <div class="progress-step" data-step="4">4</div>
+                </div>
+                <div class="progress-labels">
+                    <span class="progress-label active">Stock & Options</span>
+                    <span class="progress-label">Strike Selection</span>
+                    <span class="progress-label">Simulation</span>
+                    <span class="progress-label">Results</span>
+                </div>
+            </div>
+
+            <!-- Step 1: Stock & Options Setup -->
+            <div id="step-1" class="workflow-step active">
+                <div class="step-header">
+                    <h3>Step 1: Stock & Options Setup</h3>
+                    <p>Enter ticker and fetch current market data</p>
+                </div>
+                
+                <div class="step-content">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="ticker_input">Stock Ticker</label>
+                            <input type="text" id="ticker_input" value="AAPL" placeholder="Enter ticker symbol">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="fetch_button">Market Data</label>
+                            <button id="fetch_button" class="btn btn-primary">
+                                <i class="fas fa-download"></i> Fetch Market Data
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Current Stock Price Display -->
+                    <div id="stock_price_display" class="stock-price-section" style="display: none;">
+                        <div class="stock-price-card">
+                            <div class="stock-info">
+                                <h4 id="stock_symbol">AAPL</h4>
+                                <div class="price-info">
+                                    <span class="current-price" id="current_price">$0.00</span>
+                                    <span class="price-change" id="price_change">+0.00 (0.00%)</span>
+                                </div>
+                            </div>
+                            <div class="stock-details">
+                                <div class="detail-item">
+                                    <span class="label">Market Cap:</span>
+                                    <span id="market_cap">-</span>
+                                </div>
+                                <div class="detail-item">
+                                    <span class="label">Volume:</span>
+                                    <span id="volume">-</span>
+                                </div>
+                                <div class="detail-item">
+                                    <span class="label">52W Range:</span>
+                                    <span id="fifty_two_week_range">-</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Expiry Selection -->
+                    <div id="expiry_section" class="expiry-section" style="display: none;">
+                        <h4>Select Expiry Date</h4>
+                        <div class="form-group">
+                            <select id="expiry_selector">
+                                <option value="">Loading expiries...</option>
+                            </select>
+                            <small class="form-help">Choose the expiration date for your options</small>
+                        </div>
+                    </div>
+                    
+                    <div class="step-actions">
+                        <button class="btn btn-secondary" onclick="previousStep()">Previous</button>
+                        <button class="btn btn-primary" onclick="nextStep()" id="step1_next" disabled>Next: Strike Selection</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 2: Strike Selection -->
+            <div id="step-2" class="workflow-step">
+                <div class="step-header">
+                    <h3>Step 2: Strike Selection</h3>
+                    <p>Select single or multiple strike prices for simulation</p>
+                </div>
+                
+                <div class="step-content">
+                    <div class="strike-selection-header">
+                        <div class="current-price-display">
+                            <span class="label">Current Price:</span>
+                            <span class="price" id="strike_current_price">$0.00</span>
+                        </div>
+                        <div class="selection-controls">
+                            <button class="btn btn-sm btn-secondary" onclick="selectAllStrikes()">Select All</button>
+                            <button class="btn btn-sm btn-secondary" onclick="clearStrikeSelection()">Clear All</button>
+                        </div>
+                    </div>
+                    
+                    <!-- Strike Selection Grid -->
+                    <div class="strike-selection-grid">
+                        <div class="strike-category">
+                            <h4>Call Options</h4>
+                            <div id="call_strikes" class="strike-list">
+                                <div class="loading">Loading call options...</div>
+                            </div>
+                        </div>
+                        
+                        <div class="strike-category">
+                            <h4>Put Options</h4>
+                            <div id="put_strikes" class="strike-list">
+                                <div class="loading">Loading put options...</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Selected Strikes Summary -->
+                    <div id="selected_strikes_summary" class="selected-summary" style="display: none;">
+                        <h4>Selected Options</h4>
+                        <div id="selected_strikes_list" class="selected-list">
+                            <!-- Selected strikes will be displayed here -->
+                        </div>
+                    </div>
+                    
+                    <div class="step-actions">
+                        <button class="btn btn-secondary" onclick="previousStep()">Previous</button>
+                        <button class="btn btn-primary" onclick="nextStep()" id="step2_next" disabled>Next: Simulation</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 3: Simulation Settings -->
+            <div id="step-3" class="workflow-step">
+                <div class="step-header">
+                    <h3>Step 3: Simulation Settings</h3>
+                    <p>Configure Monte Carlo simulation parameters</p>
+                </div>
+                
+                <div class="step-content">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="num_simulations">Number of Simulations</label>
+                            <div class="slider-container">
+                                <input type="range" id="num_simulations" min="1000" max="50000" step="1000" value="10000">
+                                <span class="slider-value">10,000</span>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Trading Days</label>
+                            <div class="text-display">21</div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="risk_free_rate">Risk-Free Rate (%)</label>
+                            <input type="number" id="risk_free_rate" value="0.05" step="0.01" min="0" max="10">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Volatility Source</label>
+                            <div class="radio-group">
+                                <label class="radio-option">
+                                    <input type="radio" name="vol_source" value="historical" checked>
+                                    <span>Historical (20d)</span>
+                                </label>
+                                <label class="radio-option">
+                                    <input type="radio" name="vol_source" value="implied">
+                                    <span>Implied</span>
+                                </label>
+                                <label class="radio-option">
+                                    <input type="radio" name="vol_source" value="manual">
+                                    <span>Manual</span>
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group full-width">
+                            <div class="accordion">
+                                <div class="accordion-header" onclick="toggleAccordion('advanced_toggle')">
+                                    <span>Advanced Settings</span>
+                                    <i class="fas fa-chevron-down"></i>
+                                </div>
+                                <div class="accordion-content" id="advanced_toggle">
+                                    <div class="form-group">
+                                        <label for="drift_input">Drift Override</label>
+                                        <input type="number" id="drift_input" value="0.0" step="0.01">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="step-actions">
+                        <button class="btn btn-secondary" onclick="previousStep()">Previous</button>
+                        <button class="btn btn-primary" onclick="runSimulation()">
+                            <i class="fas fa-play"></i> Run Simulation
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 4: Simulation Results -->
+            <div id="step-4" class="workflow-step">
+                <div class="step-header">
+                    <h3>Step 4: Simulation Results</h3>
+                    <p>Analysis of Monte Carlo simulation outcomes</p>
+                </div>
+                
+                <div class="step-content">
+                    <div class="results-grid">
+                        <div class="chart-container">
+                            <h4>Simulated Terminal Price Distribution</h4>
+                            <canvas id="price_distribution_chart"></canvas>
+                        </div>
+                        <div class="chart-container">
+                            <h4>Strike vs. Undervaluation</h4>
+                            <canvas id="undervaluation_chart"></canvas>
+                        </div>
+                        <div class="chart-container">
+                            <h4>Strike vs. Probability of Profit</h4>
+                            <canvas id="pop_chart"></canvas>
+                        </div>
+                        
+                        <div class="table-container">
+                            <h4>Options Simulation Results</h4>
+                            <div class="table-wrapper">
+                                <table id="options_table">
+                                    <thead>
+                                        <tr>
+                                            <th>Strike</th>
+                                            <th>Type</th>
+                                            <th>Market Price</th>
+                                            <th>Simulated Price</th>
+                                            <th>% Undervalued</th>
+                                            <th>Probability of Profit</th>
+                                            <th>Expected PnL</th>
+                                            <th>Delta</th>
+                                            <th>Gamma</th>
+                                            <th>Theta</th>
+                                            <th>Vega</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr class="loading">
+                                            <td colspan="11">Loading simulation results...</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        
+
+                        
+                        <div class="highlight-cards">
+                            <h4>Top Undervalued Options</h4>
+                            <div id="top_picks" class="cards-grid">
+                                <div class="card loading">Loading...</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="step-actions">
+                        <button class="btn btn-secondary" onclick="previousStep()">Previous</button>
+                        <button class="btn btn-primary" onclick="exportResults()">
+                            <i class="fas fa-download"></i> Export Results
+                        </button>
+                        <button class="btn btn-secondary" onclick="resetWorkflow()">Start New Simulation</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/monte-carlo.js') }}"></script>
+</body>
+</html>
