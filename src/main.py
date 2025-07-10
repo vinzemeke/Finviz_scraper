@@ -622,6 +622,44 @@ def remove_ticker_from_watchlist(watchlist_id, ticker_symbol):
     else:
         return jsonify({"error": "Failed to remove ticker, not found in watchlist or watchlist ID is invalid"}), 404
 
+@app.route("/api/watchlists/<int:watchlist_id>/tickers", methods=["GET"])
+def get_tickers_in_watchlist(watchlist_id):
+    tickers = app.watchlist_service.get_tickers_in_watchlist(watchlist_id)
+    return jsonify(tickers), 200
+
+@app.route("/api/watchlists/<int:watchlist_id>/tickers/bulk", methods=["POST"])
+def bulk_add_tickers_to_watchlist(watchlist_id):
+    data = request.get_json(force=True)
+    tickers = data.get("tickers", [])
+    if not isinstance(tickers, list) or not tickers:
+        return jsonify({"error": "A non-empty list of tickers is required"}), 400
+    
+    added = []
+    already_present = []
+    failed = []
+    for ticker in tickers:
+        ticker = ticker.upper().strip()
+        if not ticker:
+            failed.append(ticker)
+            continue
+        # Try to add, check if already present
+        result = app.watchlist_service.add_ticker_to_watchlist(watchlist_id, ticker)
+        if result:
+            added.append(ticker)
+        else:
+            # Check if it's already present
+            current = app.watchlist_service.get_tickers_in_watchlist(watchlist_id)
+            if ticker in current:
+                already_present.append(ticker)
+            else:
+                failed.append(ticker)
+    return jsonify({
+        "added": added,
+        "already_present": already_present,
+        "failed": failed,
+        "message": f"Added {len(added)}, {len(already_present)} already present, {len(failed)} failed."
+    }), 200
+
 @app.route("/api/simulate", methods=["POST"])
 def simulate_option():
     data = request.json
@@ -1388,6 +1426,11 @@ def lsmc_simulate():
 def lsmc_dashboard():
     return render_template('lsmc_dashboard.html')
 
+@app.route("/watchlists")
+def watchlists():
+    app.logger.info("Accessing /watchlists route")
+    return render_template('watchlists.html')
+
 # Stock database management endpoints
 @app.route("/api/stocks/search", methods=["GET"])
 def search_stocks():
@@ -1457,8 +1500,56 @@ def get_stock_info(symbol):
         logger.error(f"Error getting stock info for {symbol}: {e}")
         return jsonify({'error': 'Failed to get stock info'}), 500
 
+@app.route("/api/chart/<ticker>", methods=["GET"])
+def api_chart_data(ticker):
+    """
+    Returns historical OHLCV data and EMAs for a ticker and interval.
+    Query params:
+      - interval: 4h, 1d, 1wk, 1mo (default: 4h)
+      - period: 6mo, 1y, etc. (default: 6mo)
+    """
+    from flask import request
+    ticker = ticker.upper()
+    interval = request.args.get("interval", "4h")
+    period = request.args.get("period", "6mo")
+
+    # Map user-friendly intervals to yfinance intervals
+    interval_map = {
+        "4h": "4h",
+        "1d": "1d",
+        "1wk": "1wk",
+        "1mo": "1mo"
+    }
+    yf_interval = interval_map.get(interval, "4h")
+
+    # Use YahooFinanceService to fetch data
+    try:
+        hist = app.yahoo_finance_service.get_historical_data(ticker, period=period, interval=yf_interval)
+        if not hist:
+            return jsonify({"error": "No data found for this ticker/interval."}), 404
+        import pandas as pd
+        df = pd.DataFrame(hist)
+        if df.empty or 'Close' not in df.columns:
+            return jsonify({"error": "No price data found."}), 404
+        # Calculate EMAs
+        df['EMA_8'] = df['Close'].ewm(span=8, adjust=False).mean()
+        df['EMA_12'] = df['Close'].ewm(span=12, adjust=False).mean()
+        df['EMA_200'] = df['Close'].ewm(span=200, adjust=False).mean()
+        # Prepare output
+        chart_data = df.to_dict(orient='records')
+        return jsonify({
+            "ticker": ticker,
+            "interval": interval,
+            "period": period,
+            "data": chart_data
+        })
+    except Exception as e:
+        import logging
+        logging.error(f"Error in /api/chart/{ticker}: {e}")
+        return jsonify({"error": str(e)}), 500
+
 def run_app():
-    app.run(debug=True, port=5001, use_reloader=False)
+    app.run(debug=True, port=5002, use_reloader=False)
 
 if __name__ == "__main__":
     run_app()

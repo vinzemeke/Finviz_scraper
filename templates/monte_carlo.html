@@ -8,37 +8,9 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/monte-carlo.css') }}">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
-<body>
+<body class="bg-gray-50 dark:bg-slate-900">
     <!-- Sidebar -->
-    <div class="sidebar">
-        <div class="sidebar-header">
-            <h1>📈 Finviz Scraper</h1>
-            <p>Smart Stock Data Collection</p>
-        </div>
-        
-        <nav class="sidebar-nav">
-            <a href="/" class="nav-item">
-                <span class="nav-icon">🏠</span>
-                <span>Dashboard</span>
-            </a>
-            <a href="/stats" class="nav-item">
-                <span class="nav-icon">📊</span>
-                <span>Statistics</span>
-            </a>
-            <a href="/database_stats" class="nav-item">
-                <span class="nav-icon">🗄️</span>
-                <span>Database Stats</span>
-            </a>
-            <a href="/monte_carlo" class="nav-item active">
-                <span class="nav-icon">🎲</span>
-                <span>Monte Carlo</span>
-            </a>
-            <a href="/lsmc_dashboard" class="nav-item">
-                <span class="nav-icon">🧮</span>
-                <span>LSMC Pricing</span>
-            </a>
-        </nav>
-    </div>
+    {% include 'sidebar.html' %}
 
     <!-- Main Content -->
     <div class="main-content">

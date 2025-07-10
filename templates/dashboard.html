@@ -21,58 +21,7 @@
 </head>
 <body class="bg-gray-50 dark:bg-slate-900">
     <!-- Sidebar -->
-    <div class="fixed inset-y-0 left-0 z-50 w-64 bg-white dark:bg-slate-800 shadow-lg transform transition-transform duration-300 ease-in-out" id="sidebar">
-        <div class="flex items-center justify-between h-16 px-6 border-b border-gray-200 dark:border-slate-700">
-            <div class="flex items-center">
-                <i class="fas fa-chart-line text-2xl text-primary-600 mr-3"></i>
-                <h1 class="text-xl font-bold text-gray-900 dark:text-white">Finviz Scraper</h1>
-            </div>
-            <button class="lg:hidden text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200" id="sidebar-close">
-                <i class="fas fa-times"></i>
-            </button>
-        </div>
-        
-        <nav class="mt-6 px-4">
-            <div class="space-y-2">
-                <a href="/" class="flex items-center px-4 py-3 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors duration-200 {% if request.endpoint == 'index' %}bg-primary-50 dark:bg-slate-700 text-primary-600 dark:text-primary-400{% endif %}">
-                    <i class="fas fa-home w-5 h-5 mr-3"></i>
-                    <span class="font-medium">Dashboard</span>
-                </a>
-                <a href="/stats" class="flex items-center px-4 py-3 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors duration-200 {% if request.endpoint == 'stats' %}bg-primary-50 dark:bg-slate-700 text-primary-600 dark:text-primary-400{% endif %}">
-                    <i class="fas fa-chart-bar w-5 h-5 mr-3"></i>
-                    <span class="font-medium">Statistics</span>
-                </a>
-                <a href="/database_stats" class="flex items-center px-4 py-3 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors duration-200 {% if request.endpoint == 'database_stats' %}bg-primary-50 dark:bg-slate-700 text-primary-600 dark:text-primary-400{% endif %}">
-                    <i class="fas fa-database w-5 h-5 mr-3"></i>
-                    <span class="font-medium">Database Stats</span>
-                </a>
-                <a href="/monte_carlo" class="flex items-center px-4 py-3 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors duration-200 {% if request.endpoint == 'monte_carlo_dashboard' %}bg-primary-50 dark:bg-slate-700 text-primary-600 dark:text-primary-400{% endif %}">
-                    <i class="fas fa-dice w-5 h-5 mr-3"></i>
-                    <span class="font-medium">Monte Carlo</span>
-                </a>
-                <a href="/lsmc_dashboard" class="flex items-center px-4 py-3 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors duration-200 {% if request.endpoint == 'lsmc_dashboard' %}bg-primary-50 dark:bg-slate-700 text-primary-600 dark:text-primary-400{% endif %}">
-                    <i class="fas fa-calculator w-5 h-5 mr-3"></i>
-                    <span class="font-medium">LSMC Pricing</span>
-                </a>
-            </div>
-
-            <div class="mt-8">
-                <h3 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider px-4">Quick Access</h3>
-                <div class="mt-2 space-y-1">
-                    {% if urls %}
-                        {% for u in urls %}
-                            <a href="/view_scanned_list/{{ u.name }}" class="flex items-center px-4 py-2 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors duration-200">
-                                <i class="fas fa-list w-4 h-4 mr-2"></i>
-                                <span class="text-sm font-medium">{{ u.name }}</span>
-                            </a>
-                        {% endfor %}
-                    {% else %}
-                        <p class="text-sm text-gray-500 dark:text-gray-400 px-4 py-2">No saved scans to display.</p>
-                    {% endif %}
-                </div>
-            </div>
-        </nav>
-    </div>
+    {% include 'sidebar.html' %}
 
     <!-- Main Content -->
     <div class="lg:ml-64">
@@ -207,8 +156,16 @@
             <!-- Stock Finding Results -->
             {% if results %}
             <div class="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 mt-6">
-                <div class="px-6 py-4 border-b border-gray-200 dark:border-slate-700">
+                <div class="px-6 py-4 border-b border-gray-200 dark:border-slate-700 flex items-center justify-between">
                     <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Scraping Results for "{{ results.name }}"</h3>
+                    <div class="flex gap-2">
+                        <button id="save-scan-watchlist-btn" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2">
+                            <i class="fas fa-star"></i> Save as Watchlist
+                        </button>
+                        <button id="add-all-to-watchlist-btn" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2">
+                            <i class="fas fa-list"></i> Add All to Watchlist
+                        </button>
+                    </div>
                 </div>
                 <div class="p-6">
                     {% if results.status == 'skipped' %}
@@ -238,6 +195,7 @@
                                 {% for t in results.tickers %}
                                 <div class="bg-gray-100 dark:bg-slate-700 px-3 py-2 rounded text-center inline-flex items-center justify-center">
                                     <a href="#" class="text-sm font-mono text-gray-900 dark:text-white hover:underline ticker-link" data-ticker="{{ t }}">{{ t }}</a>
+                                    <button class="ml-2 text-blue-500 hover:text-blue-700" onclick="openAddToWatchlistModal('{{ t }}')"><i class="fas fa-plus-circle"></i></button>
                                 </div>
                                 {% endfor %}
                             </div>
@@ -260,11 +218,86 @@
                 </button>
             </div>
             <div class="mt-4" id="modalContent">
-                <p class="text-gray-500 dark:text-gray-400">Loading ticker details...</p>
+                <!-- Chart Controls -->
+                <div class="flex flex-wrap gap-4 mb-4 items-center">
+                    <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Timeframe:
+                        <select id="chart-interval-select" class="ml-2 px-2 py-1 border border-gray-300 dark:border-slate-600 rounded-lg dark:bg-slate-700 dark:text-white">
+                            <option value="4h">4 Hour</option>
+                            <option value="1d">Daily</option>
+                            <option value="1wk">Weekly</option>
+                            <option value="1mo">Monthly</option>
+                        </select>
+                    </label>
+                    <label class="inline-flex items-center text-sm font-medium text-gray-700 dark:text-gray-300">
+                        <input type="checkbox" id="toggle-ema-8" class="mr-1" checked> 8 EMA
+                    </label>
+                    <label class="inline-flex items-center text-sm font-medium text-gray-700 dark:text-gray-300">
+                        <input type="checkbox" id="toggle-ema-12" class="mr-1" checked> 12 EMA
+                    </label>
+                    <label class="inline-flex items-center text-sm font-medium text-gray-700 dark:text-gray-300">
+                        <input type="checkbox" id="toggle-ema-200" class="mr-1" checked> 200 EMA
+                    </label>
+                </div>
+                <!-- Chart.js Canvas -->
+                <div class="w-full h-96 mb-6">
+                    <canvas id="tickerChartCanvas" class="w-full h-full"></canvas>
+                </div>
+                <!-- Ticker Info (populated by JS) -->
+                <div id="ticker-info-fields">
+                    <!-- Existing info fields will be rendered here by JS -->
+                </div>
             </div>
         </div>
     </div>
 
+    <!-- Save as Watchlist Modal -->
+    <div id="saveAsWatchlistModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 hidden">
+        <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white dark:bg-slate-800">
+            <div class="flex justify-between items-center pb-3">
+                <h3 class="text-lg leading-6 font-medium text-gray-900 dark:text-white">Save Scan as Watchlist</h3>
+                <button class="text-gray-400 hover:text-gray-500 dark:text-gray-300 dark:hover:text-gray-400" onclick="closeSaveAsWatchlistModal()">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            <div class="mt-2">
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Watchlist Name</label>
+                <input id="new-watchlist-name" type="text" class="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 dark:bg-slate-700 dark:text-white" placeholder="Enter watchlist name">
+                <div class="mt-4 flex justify-end">
+                    <button class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium" onclick="saveScanAsWatchlist()">Save</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- Add All to Watchlist Modal -->
+    <div id="addAllToWatchlistModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 hidden">
+        <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white dark:bg-slate-800">
+            <div class="flex justify-between items-center pb-3">
+                <h3 class="text-lg leading-6 font-medium text-gray-900 dark:text-white">Add All to Watchlist</h3>
+                <button class="text-gray-400 hover:text-gray-500 dark:text-gray-300 dark:hover:text-gray-400" onclick="closeAddAllToWatchlistModal()">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            <div class="mt-2">
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Select Watchlist</label>
+                <select id="bulk-watchlist-select" class="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 dark:bg-slate-700 dark:text-white"></select>
+                <div class="mt-4 flex justify-end">
+                    <button class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium" onclick="addAllToWatchlist()">Add All</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- Bulk Add Feedback Modal -->
+    <div id="bulkAddFeedbackModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 hidden">
+        <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white dark:bg-slate-800">
+            <div class="flex justify-between items-center pb-3">
+                <h3 class="text-lg leading-6 font-medium text-gray-900 dark:text-white">Bulk Add Summary</h3>
+                <button class="text-gray-400 hover:text-gray-500 dark:text-gray-300 dark:hover:text-gray-400" onclick="closeBulkAddFeedbackModal()">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            <div class="mt-2" id="bulk-add-feedback-content"></div>
+        </div>
+    </div>
     <script>
         // Sidebar toggle
         document.getElementById('sidebar-toggle').addEventListener('click', function() {
@@ -302,5 +335,96 @@
         });
     </script>
     <script src="{{ url_for('static', filename='js/ticker-details.js') }}"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+    <!-- Add to Watchlist Modal -->
+    <div id="addToWatchlistModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 hidden">
+        <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white dark:bg-slate-800">
+            <div class="flex justify-between items-center pb-3">
+                <h3 class="text-lg leading-6 font-medium text-gray-900 dark:text-white">Add to Watchlist</h3>
+                <button class="text-gray-400 hover:text-gray-500 dark:text-gray-300 dark:hover:text-gray-400" onclick="closeAddToWatchlistModal()">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            <div class="mt-2">
+                <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Select a watchlist to add <strong id="modal-ticker-symbol"></strong> to:</p>
+                <select id="watchlist-select" class="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 dark:bg-slate-700 dark:text-white">
+                    <!-- Options will be populated by JavaScript -->
+                </select>
+                <div class="mt-4 flex justify-end">
+                    <button class="bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded-lg font-medium" onclick="addTickerToWatchlist()">Add</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Render scan tickers as JSON for robust JS parsing -->
+    <script type="application/json" id="scan-tickers-json">{{ results.tickers|tojson if results and results.tickers else '[]' }}</script>
+    <script>
+    // Bulk Add/Save as Watchlist logic
+    const scanTickers = JSON.parse(document.getElementById('scan-tickers-json').textContent);
+    document.getElementById('save-scan-watchlist-btn').onclick = function() {
+        document.getElementById('saveAsWatchlistModal').classList.remove('hidden');
+    };
+    document.getElementById('add-all-to-watchlist-btn').onclick = async function() {
+        // Populate select
+        const select = document.getElementById('bulk-watchlist-select');
+        select.innerHTML = '';
+        const res = await fetch('/api/watchlists');
+        const watchlists = await res.json();
+        watchlists.forEach(w => {
+            const option = document.createElement('option');
+            option.value = w.id;
+            option.textContent = w.name;
+            select.appendChild(option);
+        });
+        document.getElementById('addAllToWatchlistModal').classList.remove('hidden');
+    };
+    function closeSaveAsWatchlistModal() {
+        document.getElementById('saveAsWatchlistModal').classList.add('hidden');
+    }
+    function closeAddAllToWatchlistModal() {
+        document.getElementById('addAllToWatchlistModal').classList.add('hidden');
+    }
+    function closeBulkAddFeedbackModal() {
+        document.getElementById('bulkAddFeedbackModal').classList.add('hidden');
+    }
+    async function saveScanAsWatchlist() {
+        const name = document.getElementById('new-watchlist-name').value.trim();
+        if (!name) return;
+        const res = await fetch('/api/watchlists', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, tickers: scanTickers })
+        });
+        const data = await res.json();
+        closeSaveAsWatchlistModal();
+        let msg = '';
+        if (res.ok && data.id) {
+            msg = `<div class='text-green-700'>Watchlist created: <b>${name}</b></div>`;
+        } else {
+            msg = `<div class='text-red-700'>${data.error || 'Failed to create watchlist.'}</div>`;
+        }
+        document.getElementById('bulk-add-feedback-content').innerHTML = msg;
+        document.getElementById('bulkAddFeedbackModal').classList.remove('hidden');
+    }
+    async function addAllToWatchlist() {
+        const watchlistId = document.getElementById('bulk-watchlist-select').value;
+        if (!watchlistId) return;
+        const res = await fetch(`/api/watchlists/${watchlistId}/tickers/bulk`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ tickers: scanTickers })
+        });
+        const data = await res.json();
+        closeAddAllToWatchlistModal();
+        let msg = `<div class='mb-2 text-green-700'>${data.message}</div>`;
+        if (data.added && data.added.length) msg += `<div><b>Added:</b> ${data.added.join(', ')}</div>`;
+        if (data.already_present && data.already_present.length) msg += `<div><b>Already Present:</b> ${data.already_present.join(', ')}</div>`;
+        if (data.failed && data.failed.length) msg += `<div class='text-red-700'><b>Failed:</b> ${data.failed.join(', ')}</div>`;
+        document.getElementById('bulk-add-feedback-content').innerHTML = msg;
+        document.getElementById('bulkAddFeedbackModal').classList.remove('hidden');
+    }
+    </script>
 </body>
 </html> 

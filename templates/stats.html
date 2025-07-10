@@ -21,42 +21,7 @@
 </head>
 <body class="bg-gray-50 dark:bg-slate-900">
     <!-- Sidebar -->
-    <div class="fixed inset-y-0 left-0 z-50 w-64 bg-white dark:bg-slate-800 shadow-lg transform transition-transform duration-300 ease-in-out" id="sidebar">
-        <div class="flex items-center justify-between h-16 px-6 border-b border-gray-200 dark:border-slate-700">
-            <div class="flex items-center">
-                <i class="fas fa-chart-line text-2xl text-primary-600 mr-3"></i>
-                <h1 class="text-xl font-bold text-gray-900 dark:text-white">Finviz Scraper</h1>
-            </div>
-            <button class="lg:hidden text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200" id="sidebar-close">
-                <i class="fas fa-times"></i>
-            </button>
-        </div>
-        
-        <nav class="mt-6 px-4">
-            <div class="space-y-2">
-                <a href="/" class="flex items-center px-4 py-3 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors duration-200">
-                    <i class="fas fa-home w-5 h-5 mr-3"></i>
-                    <span class="font-medium">Dashboard</span>
-                </a>
-                <a href="/stats" class="flex items-center px-4 py-3 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors duration-200 bg-primary-50 dark:bg-slate-700 text-primary-600 dark:text-primary-400">
-                    <i class="fas fa-chart-bar w-5 h-5 mr-3"></i>
-                    <span class="font-medium">Statistics</span>
-                </a>
-                <a href="/database_stats" class="flex items-center px-4 py-3 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors duration-200">
-                    <i class="fas fa-database w-5 h-5 mr-3"></i>
-                    <span class="font-medium">Database Stats</span>
-                </a>
-                <a href="/monte_carlo" class="flex items-center px-4 py-3 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors duration-200">
-                    <i class="fas fa-dice w-5 h-5 mr-3"></i>
-                    <span class="font-medium">Monte Carlo</span>
-                </a>
-                <a href="/lsmc_dashboard" class="flex items-center px-4 py-3 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors duration-200">
-                    <i class="fas fa-calculator w-5 h-5 mr-3"></i>
-                    <span class="font-medium">LSMC Pricing</span>
-                </a>
-            </div>
-        </nav>
-    </div>
+    {% include 'sidebar.html' %}
 
     <!-- Main Content -->
     <div class="lg:ml-64">
@@ -92,7 +57,6 @@
                         </div>
                     </div>
                 </div>
-
                 <div class="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 p-6">
                     <div class="flex items-center">
                         <div class="p-3 rounded-full bg-green-100 dark:bg-green-900">
@@ -104,7 +68,6 @@
                         </div>
                     </div>
                 </div>
-
                 <div class="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 p-6">
                     <div class="flex items-center">
                         <div class="p-3 rounded-full bg-green-100 dark:bg-green-900">
@@ -116,7 +79,6 @@
                         </div>
                     </div>
                 </div>
-
                 <div class="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 p-6">
                     <div class="flex items-center">
                         <div class="p-3 rounded-full bg-yellow-100 dark:bg-yellow-900">
@@ -128,7 +90,6 @@
                         </div>
                     </div>
                 </div>
-
                 <div class="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 p-6">
                     <div class="flex items-center">
                         <div class="p-3 rounded-full bg-purple-100 dark:bg-purple-900">
@@ -141,7 +102,6 @@
                     </div>
                 </div>
             </div>
-
             <!-- Deduplication Effectiveness -->
             <div class="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 mb-6">
                 <div class="px-6 py-4 border-b border-gray-200 dark:border-slate-700">
@@ -171,7 +131,6 @@
                     </div>
                 </div>
             </div>
-
             <!-- Top URLs by Activity -->
             <div class="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 mb-6">
                 <div class="px-6 py-4 border-b border-gray-200 dark:border-slate-700">
@@ -220,7 +179,6 @@
                     {% endif %}
                 </div>
             </div>
-
             <!-- Recent Activity -->
             <div class="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-gray-200 dark:border-slate-700">
                 <div class="px-6 py-4 border-b border-gray-200 dark:border-slate-700">
@@ -279,17 +237,14 @@
             </div>
         </main>
     </div>
-
     <script>
         // Sidebar toggle
         document.getElementById('sidebar-toggle').addEventListener('click', function() {
             document.getElementById('sidebar').classList.toggle('-translate-x-full');
         });
-
         document.getElementById('sidebar-close').addEventListener('click', function() {
             document.getElementById('sidebar').classList.add('-translate-x-full');
         });
-
         // Dark mode toggle
         document.getElementById('dark-mode-toggle').addEventListener('click', function() {
             document.documentElement.classList.toggle('dark');
@@ -302,7 +257,6 @@
                 icon.classList.add('fa-moon');
             }
         });
-
         // Check for saved dark mode preference
         if (localStorage.getItem('darkMode') === 'true' || 
             (!localStorage.getItem('darkMode') && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
@@ -310,7 +264,6 @@
             document.querySelector('#dark-mode-toggle i').classList.remove('fa-moon');
             document.querySelector('#dark-mode-toggle i').classList.add('fa-sun');
         }
-
         // Save dark mode preference
         document.getElementById('dark-mode-toggle').addEventListener('click', function() {
             localStorage.setItem('darkMode', document.documentElement.classList.contains('dark'));

@@ -4,50 +4,49 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>LSMC American Options Pricing</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/sidebar.css') }}">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: {"50":"#eff6ff","100":"#dbeafe","200":"#bfdbfe","300":"#93c5fd","400":"#60a5fa","500":"#3b82f6","600":"#2563eb","700":"#1d4ed8","800":"#1e40af","900":"#1e3a8a","950":"#172554"}
+                    }
+                }
+            }
+        }
+    </script>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/lsmc-dashboard.css') }}">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
-<body>
+<body class="bg-gray-50 dark:bg-slate-900">
     <!-- Sidebar -->
-    <div class="sidebar">
-        <div class="sidebar-header">
-            <h1>📈 Finviz Scraper</h1>
-            <p>Smart Stock Data Collection</p>
-        </div>
-        
-        <nav class="sidebar-nav">
-            <a href="/" class="nav-item">
-                <span class="nav-icon">🏠</span>
-                <span>Dashboard</span>
-            </a>
-            <a href="/stats" class="nav-item">
-                <span class="nav-icon">📊</span>
-                <span>Statistics</span>
-            </a>
-            <a href="/database_stats" class="nav-item">
-                <span class="nav-icon">🗄️</span>
-                <span>Database Stats</span>
-            </a>
-            <a href="/monte_carlo" class="nav-item">
-                <span class="nav-icon">🎲</span>
-                <span>Monte Carlo</span>
-            </a>
-            <a href="/lsmc_dashboard" class="nav-item active">
-                <span class="nav-icon">🧮</span>
-                <span>LSMC Pricing</span>
-            </a>
-        </nav>
-    </div>
+    {% include 'sidebar.html' %}
 
     <!-- Main Content -->
-    <div class="main-content">
-        <div class="container">
+    <div class="lg:ml-64">
+        <header class="bg-white dark:bg-slate-800 shadow-sm border-b border-gray-200 dark:border-slate-700">
+            <div class="flex items-center justify-between h-16 px-6">
+                <div class="flex items-center">
+                    <button class="lg:hidden text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 mr-4" id="sidebar-toggle">
+                        <i class="fas fa-bars"></i>
+                    </button>
+                    <h2 class="text-xl font-semibold text-gray-900 dark:text-white">LSMC American Options Pricing</h2>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <button class="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200" id="dark-mode-toggle">
+                        <i class="fas fa-moon"></i>
+                    </button>
+                </div>
+            </div>
+        </header>
+        <main class="p-6">
             <div class="page-header">
                 <h2>LSMC American Options Pricing</h2>
                 <p>Advanced American options pricing using Least-Squares Monte Carlo with PyTorch acceleration</p>
             </div>
-
             <!-- Progress Bar -->
             <div class="progress-container">
                 <div class="progress-bar">
@@ -63,7 +62,6 @@
                     <span class="progress-label">View Results</span>
                 </div>
             </div>
-
             <!-- Step 1: Enter Ticker -->
             <div id="step-1" class="workflow-step active">
                 <div class="step-header">
@@ -420,9 +418,45 @@
                     </div>
                 </div>
             </div>
-        </div>
+        </main>
     </div>
 
     <script src="{{ url_for('static', filename='js/lsmc-dashboard.js') }}"></script>
+    <script>
+        // Sidebar toggle
+        document.getElementById('sidebar-toggle').addEventListener('click', function() {
+            document.getElementById('sidebar').classList.toggle('-translate-x-full');
+        });
+
+        document.getElementById('sidebar-close').addEventListener('click', function() {
+            document.getElementById('sidebar').classList.add('-translate-x-full');
+        });
+
+        // Dark mode toggle
+        document.getElementById('dark-mode-toggle').addEventListener('click', function() {
+            document.documentElement.classList.toggle('dark');
+            const icon = this.querySelector('i');
+            if (document.documentElement.classList.contains('dark')) {
+                icon.classList.remove('fa-moon');
+                icon.classList.add('fa-sun');
+            } else {
+                icon.classList.remove('fa-sun');
+                icon.classList.add('fa-moon');
+            }
+        });
+
+        // Check for saved dark mode preference
+        if (localStorage.getItem('darkMode') === 'true' || 
+            (!localStorage.getItem('darkMode') && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark');
+            document.querySelector('#dark-mode-toggle i').classList.remove('fa-moon');
+            document.querySelector('#dark-mode-toggle i').classList.add('fa-sun');
+        }
+
+        // Save dark mode preference
+        document.getElementById('dark-mode-toggle').addEventListener('click', function() {
+            localStorage.setItem('darkMode', document.documentElement.classList.contains('dark'));
+        });
+    </script>
 </body>
 </html> 

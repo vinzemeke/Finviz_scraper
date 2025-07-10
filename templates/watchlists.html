@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Watchlists</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+    .autocomplete-container { position: relative; margin-bottom: 0.5rem; }
+    .autocomplete-dropdown {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: white;
+        border: 1px solid #e5e7eb;
+        border-top: none;
+        z-index: 50;
+        display: none;
+        max-height: 220px;
+        overflow-y: auto;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+    .dark .autocomplete-dropdown {
+        background: #1e293b;
+        border-color: #334155;
+    }
+    .autocomplete-item {
+        padding: 0.5rem 1rem;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    .autocomplete-item.selected, .autocomplete-item:hover {
+        background: #e0e7ff;
+        color: #1e40af;
+    }
+    .dark .autocomplete-item.selected, .dark .autocomplete-item:hover {
+        background: #334155;
+        color: #60a5fa;
+    }
+    .autocomplete-symbol { font-weight: bold; font-family: monospace; }
+    .autocomplete-company { font-size: 0.95em; color: #64748b; }
+    .autocomplete-exchange { font-size: 0.85em; color: #94a3b8; margin-left: 0.5em; }
+    .autocomplete-etf-badge {
+        background: #fbbf24;
+        color: #fff;
+        font-size: 0.75em;
+        padding: 0.1em 0.5em;
+        border-radius: 0.5em;
+        margin-left: 0.5em;
+    }
+    .watchlist-card { overflow: visible !important; }
+    </style>
+</head>
+<body class="bg-gray-50 dark:bg-slate-900">
+    {% include 'sidebar.html' %}
+    <div class="lg:ml-64">
+        <header class="bg-white dark:bg-slate-800 shadow-sm border-b border-gray-200 dark:border-slate-700">
+            <div class="flex items-center justify-between h-16 px-6">
+                <h2 class="text-2xl font-bold text-gray-900 dark:text-white">Watchlists</h2>
+                <button id="open-create-modal" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg font-medium shadow flex items-center gap-2">
+                    <i class="fas fa-plus-circle"></i> Create Watchlist
+                </button>
+            </div>
+        </header>
+        <main class="p-6">
+            <!-- Watchlists Container -->
+            <div id="watchlists-container" class="grid grid-cols-1 md:grid-cols-2 gap-6"></div>
+        </main>
+    </div>
+    <!-- Create/Rename Watchlist Modal -->
+    <div id="watchlist-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40 hidden">
+        <div class="bg-white dark:bg-slate-800 rounded-lg shadow-lg p-8 w-full max-w-md relative">
+            <button id="close-watchlist-modal" class="absolute top-2 right-2 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"><i class="fas fa-times"></i></button>
+            <h3 id="modal-title" class="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2"><i class="fas fa-plus-circle text-blue-600"></i> <span id="modal-action">Add New Watchlist</span></h3>
+            <form id="watchlist-form" class="flex items-center gap-4 w-full">
+                <input type="text" id="watchlist-name-input" placeholder="Watchlist name" class="flex-1 px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-slate-700 dark:text-white" autocomplete="off">
+                <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium transition-colors duration-200 shadow">Save</button>
+            </form>
+        </div>
+    </div>
+    <!-- Chart Modal -->
+    <div id="chart-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60 hidden">
+        <div class="bg-white dark:bg-slate-800 rounded-lg shadow-lg p-6 w-full max-w-2xl relative">
+            <button id="close-chart-modal" class="absolute top-2 right-2 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"><i class="fas fa-times"></i></button>
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2"><i class="fas fa-chart-line text-blue-600"></i> <span id="chart-modal-title"></span></h3>
+            <div id="chart-modal-content" class="flex justify-center items-center min-h-[300px]">
+                <!-- Chart will be loaded here -->
+            </div>
+        </div>
+    </div>
+    <div id="feedback-message" class="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 hidden px-4 py-2 rounded shadow-lg text-white text-center"></div>
+    <script type="module" src="/static/js/watchlist-autocomplete.js"></script>
+    <script type="module">
+    import { attachWatchlistAutocomplete } from '/static/js/watchlist-autocomplete.js';
+
+    // Modal logic
+    let editingWatchlistId = null;
+    const watchlistModal = document.getElementById('watchlist-modal');
+    const openCreateModalBtn = document.getElementById('open-create-modal');
+    const closeWatchlistModalBtn = document.getElementById('close-watchlist-modal');
+    const watchlistForm = document.getElementById('watchlist-form');
+    const watchlistNameInput = document.getElementById('watchlist-name-input');
+    const modalAction = document.getElementById('modal-action');
+    const modalTitle = document.getElementById('modal-title');
+
+    openCreateModalBtn.onclick = () => {
+        editingWatchlistId = null;
+        modalAction.textContent = 'Add New Watchlist';
+        watchlistNameInput.value = '';
+        watchlistModal.classList.remove('hidden');
+        setTimeout(() => watchlistNameInput.focus(), 100);
+    };
+    closeWatchlistModalBtn.onclick = () => watchlistModal.classList.add('hidden');
+    watchlistModal.onclick = (e) => { if (e.target === watchlistModal) watchlistModal.classList.add('hidden'); };
+
+    watchlistForm.onsubmit = async (e) => {
+        e.preventDefault();
+        const name = watchlistNameInput.value.trim();
+        if (!name) {
+            showFeedback('Watchlist name cannot be empty', 'error');
+            return;
+        }
+        watchlistForm.querySelector('button[type="submit"]').disabled = true;
+        let result;
+        if (editingWatchlistId) {
+            result = await updateWatchlist(editingWatchlistId, name);
+            if (result) {
+                showFeedback('Watchlist renamed successfully');
+            } else {
+                showFeedback('Failed to rename watchlist. Name may already exist.', 'error');
+            }
+        } else {
+            result = await createWatchlist(name);
+            if (result && result.id) {
+                showFeedback('Watchlist created successfully');
+            } else {
+                showFeedback('Failed to create watchlist. Name may already exist.', 'error');
+            }
+        }
+        watchlistForm.querySelector('button[type="submit"]').disabled = false;
+        watchlistModal.classList.add('hidden');
+        await loadAndRender();
+    };
+
+    // Chart modal logic
+    const chartModal = document.getElementById('chart-modal');
+    const closeChartModalBtn = document.getElementById('close-chart-modal');
+    const chartModalContent = document.getElementById('chart-modal-content');
+    const chartModalTitle = document.getElementById('chart-modal-title');
+    closeChartModalBtn.onclick = () => chartModal.classList.add('hidden');
+    chartModal.onclick = (e) => { if (e.target === chartModal) chartModal.classList.add('hidden'); };
+
+    // API helpers
+    async function fetchWatchlists() {
+        const res = await fetch('/api/watchlists');
+        if (!res.ok) return [];
+        return await res.json();
+    }
+    async function createWatchlist(name) {
+        const res = await fetch('/api/watchlists', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name })
+        });
+        return res.ok ? await res.json() : null;
+    }
+    async function updateWatchlist(id, name) {
+        const res = await fetch(`/api/watchlists/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name })
+        });
+        return res.ok;
+    }
+    async function deleteWatchlist(id) {
+        if (!confirm('Delete this watchlist?')) return;
+        await fetch(`/api/watchlists/${id}`, { method: 'DELETE' });
+        await loadAndRender();
+    }
+    async function addTicker(watchlistId, symbol) {
+        const res = await fetch(`/api/watchlists/${watchlistId}/tickers`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ticker_symbol: symbol })
+        });
+        return res.ok;
+    }
+    async function removeTicker(watchlistId, symbol) {
+        await fetch(`/api/watchlists/${watchlistId}/tickers/${symbol}`, { method: 'DELETE' });
+        await renderTickers(watchlistId);
+    }
+    async function fetchTickers(watchlistId) {
+        const res = await fetch(`/api/watchlists/${watchlistId}/tickers`);
+        if (!res.ok) return [];
+        return await res.json();
+    }
+    // Render logic
+    async function loadAndRender() {
+        const watchlists = await fetchWatchlists();
+        renderWatchlists(watchlists);
+    }
+    function renderWatchlists(watchlists) {
+        const container = document.getElementById('watchlists-container');
+        container.innerHTML = '';
+        watchlists.forEach(watchlist => {
+            const card = document.createElement('div');
+            card.className = 'watchlist-card bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 p-6 flex flex-col w-full';
+            card.innerHTML = `
+                <div class="flex justify-between items-center mb-4">
+                    <div class="flex items-center gap-2">
+                        <button class="chevron-btn text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 focus:outline-none transition-transform" data-wid="${watchlist.id}" aria-label="Toggle tickers" style="transform: rotate(0deg);">
+                            <i class="fas fa-chevron-down"></i>
+                        </button>
+                        <h3 class="text-lg font-semibold text-gray-900 dark:text-white">${watchlist.name}</h3>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 ml-2">Created: ${new Date(watchlist.created_at).toLocaleString()}</p>
+                    </div>
+                    <div class="flex gap-2">
+                        <button class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200" title="Rename" onclick="window.editWatchlist(${watchlist.id}, '${watchlist.name.replace(/'/g, "\'")}')"><i class="fas fa-edit"></i></button>
+                        <button class="text-red-500 hover:text-red-700" title="Delete" onclick="window.deleteWatchlist(${watchlist.id})"><i class="fas fa-trash"></i></button>
+                    </div>
+                </div>
+                <div class="autocomplete-container w-full max-w-xs">
+                    <input type="text" placeholder="Add ticker..." class="ticker-input w-full px-2 py-1 border border-gray-300 dark:border-slate-600 rounded focus:ring-2 focus:ring-blue-500 dark:bg-slate-700 dark:text-white" id="ticker-input-${watchlist.id}">
+                    <div class="autocomplete-dropdown" id="autocomplete-dropdown-${watchlist.id}" style="display: none;"></div>
+                </div>
+                <button class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded w-fit mb-2" id="add-ticker-btn-${watchlist.id}">Add</button>
+                <div class="flex flex-col gap-2 transition-all duration-300" id="tickers-list-${watchlist.id}"></div>
+            `;
+            container.appendChild(card);
+            renderTickers(watchlist.id); // Render tickers immediately
+            setupTickerInput(watchlist.id);
+            // Chevron toggle logic
+            const chevronBtn = card.querySelector('.chevron-btn');
+            const tickersList = card.querySelector(`#tickers-list-${watchlist.id}`);
+            chevronBtn.onclick = () => {
+                const isHidden = tickersList.classList.toggle('hidden');
+                chevronBtn.querySelector('i').style.transform = isHidden ? 'rotate(-90deg)' : 'rotate(0deg)';
+            };
+            // Default: show tickers
+            tickersList.classList.remove('hidden');
+            chevronBtn.querySelector('i').style.transform = 'rotate(0deg)';
+        });
+    }
+    async function renderTickers(watchlistId) {
+        const tickers = await fetchTickers(watchlistId);
+        const tickersList = document.getElementById(`tickers-list-${watchlistId}`);
+        tickersList.innerHTML = '';
+        if (tickers.length === 0) {
+            tickersList.innerHTML = '<div class="text-gray-400 text-sm italic">No tickers in this watchlist yet.</div>';
+            return;
+        }
+        tickers.forEach(ticker => {
+            const row = document.createElement('div');
+            row.className = 'ticker-row flex items-center justify-between bg-gray-50 dark:bg-slate-700 px-3 py-2 rounded mt-1 shadow-sm';
+            row.innerHTML = `
+                <div>
+                    <span class="font-mono font-semibold text-gray-800 dark:text-gray-200">${ticker}</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button class="text-blue-500 hover:text-blue-700" title="View Chart"><i class="fas fa-chart-line"></i></button>
+                    <button class="text-red-500 hover:text-red-700" title="Remove"><i class="fas fa-times-circle"></i></button>
+                </div>
+            `;
+            row.querySelector('.fa-chart-line').onclick = () => showChartModal(ticker);
+            row.querySelector('.fa-times-circle').onclick = () => removeTicker(watchlistId, ticker);
+            tickersList.appendChild(row);
+        });
+    }
+    function setupTickerInput(watchlistId) {
+        const input = document.getElementById(`ticker-input-${watchlistId}`);
+        const dropdown = document.getElementById(`autocomplete-dropdown-${watchlistId}`);
+        attachWatchlistAutocomplete(input, dropdown, (result) => {
+            input.value = result.symbol;
+        });
+        const addBtn = document.getElementById(`add-ticker-btn-${watchlistId}`);
+        addBtn.onclick = async () => {
+            const symbol = input.value.trim().toUpperCase();
+            if (!symbol) {
+                showFeedback('Please enter a ticker symbol', 'error');
+                return;
+            }
+            addBtn.disabled = true;
+            const ok = await addTicker(watchlistId, symbol);
+            if (ok) {
+                showFeedback('Ticker added to watchlist');
+                input.value = '';
+                await renderTickers(watchlistId);
+            } else {
+                showFeedback('Failed to add ticker. It may already be in the watchlist.', 'error');
+            }
+            addBtn.disabled = false;
+        };
+    }
+    // Chart modal logic
+    async function showChartModal(ticker) {
+        chartModalTitle.textContent = `${ticker} - 4H Chart`;
+        chartModalContent.innerHTML = '<div class="w-full flex justify-center items-center min-h-[300px]"><span>Loading chart...</span></div>';
+        chartModal.classList.remove('hidden');
+        // Replace the URL below with your real chart endpoint
+        const chartUrl = `/chart/${ticker}?interval=4h`;
+        chartModalContent.innerHTML = `<img src="${chartUrl}" alt="${ticker} 4H Chart" class="max-w-full max-h-[400px] rounded shadow">`;
+    }
+    function showFeedback(msg, type = 'success') {
+        const feedback = document.getElementById('feedback-message');
+        feedback.textContent = msg;
+        feedback.className = `fixed top-4 left-1/2 transform -translate-x-1/2 z-50 px-4 py-2 rounded shadow-lg text-white text-center ${type === 'error' ? 'bg-red-600' : 'bg-green-600'}`;
+        feedback.classList.remove('hidden');
+        setTimeout(() => feedback.classList.add('hidden'), 2500);
+    }
+    // Expose for inline event handlers
+    window.deleteWatchlist = deleteWatchlist;
+    window.editWatchlist = (id, name) => {
+        editingWatchlistId = id;
+        modalAction.textContent = 'Rename Watchlist';
+        watchlistNameInput.value = name;
+        watchlistModal.classList.remove('hidden');
+        setTimeout(() => watchlistNameInput.focus(), 100);
+    };
+    await loadAndRender();
+    </script>
+</body>
+</html> 
